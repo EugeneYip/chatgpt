@@ -603,10 +603,10 @@ export default function ChatGPTMasterGuide() {
               </div>
             </div>
              <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.7 }}>
-            Claude User Guide
+            ChatGPT User Guide
              <br />
             © 2026 EugeneYip.com All Rights Reserved. 
-          </p>
+             </p>
           </div>
         </footer>
       </div>
