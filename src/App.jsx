@@ -595,7 +595,8 @@ export default function ChatGPTMasterGuide() {
               <div className="text-[11px] font-semibold uppercase tracking-widest text-emerald-300">Final takeaway</div>
               <h2 className="ff-display mt-2 text-2xl font-medium tracking-tight md:text-[28px]">What mastery looks like</h2>
               <p className="mt-4 max-w-xl text-[14px] leading-[1.85] text-emerald-100" style={{opacity:0.8}}>Choose the correct mode. Define the job clearly. Verify what matters. Revise intelligently. Turn successes into reusable systems. The best users are clear thinkers who happen to use AI.</p>
-              <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.7 }}>
+              <p style={{ fontSize: 13, lineHeight: 1.7 }}>
+              <br />
               ChatGPT User Guide
               <br />
               © 2026 EugeneYip.com All Rights Reserved. 
