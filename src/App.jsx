@@ -595,6 +595,11 @@ export default function ChatGPTMasterGuide() {
               <div className="text-[11px] font-semibold uppercase tracking-widest text-emerald-300">Final takeaway</div>
               <h2 className="ff-display mt-2 text-2xl font-medium tracking-tight md:text-[28px]">What mastery looks like</h2>
               <p className="mt-4 max-w-xl text-[14px] leading-[1.85] text-emerald-100" style={{opacity:0.8}}>Choose the correct mode. Define the job clearly. Verify what matters. Revise intelligently. Turn successes into reusable systems. The best users are clear thinkers who happen to use AI.</p>
+              <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.7 }}>
+              ChatGPT User Guide
+              <br />
+              © 2026 EugeneYip.com All Rights Reserved. 
+              </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <div className="text-[13px] font-semibold">Keep re-checking</div>
@@ -602,11 +607,6 @@ export default function ChatGPTMasterGuide() {
                 {["Capabilities","Pricing","Release Notes","Projects","Memory FAQ","Canvas","Tasks","Apps","Search","Deep Research","Study Mode","Record","Shared Links","Groups","Skills","Agent","Voice","Images FAQ"].map(i=><div key={i} className="flex items-center gap-1.5"><div className="h-1 w-1 shrink-0 rounded-full bg-emerald-400" style={{opacity:0.5}}/>{i}</div>)}
               </div>
             </div>
-             <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.7 }}>
-            ChatGPT User Guide
-             <br />
-            © 2026 EugeneYip.com All Rights Reserved. 
-             </p>
           </div>
         </footer>
       </div>
