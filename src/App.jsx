@@ -602,6 +602,11 @@ export default function ChatGPTMasterGuide() {
                 {["Capabilities","Pricing","Release Notes","Projects","Memory FAQ","Canvas","Tasks","Apps","Search","Deep Research","Study Mode","Record","Shared Links","Groups","Skills","Agent","Voice","Images FAQ"].map(i=><div key={i} className="flex items-center gap-1.5"><div className="h-1 w-1 shrink-0 rounded-full bg-emerald-400" style={{opacity:0.5}}/>{i}</div>)}
               </div>
             </div>
+             <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.7 }}>
+            Claude User Guide
+             <br />
+            © 2026 EugeneYip.com All Rights Reserved. 
+          </p>
           </div>
         </footer>
       </div>
