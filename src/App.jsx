@@ -1,1017 +1,298 @@
-import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import {
   BookOpen, Brain, Search, Globe, FolderOpen, Settings, Bot, PenTool,
   Shield, CheckCircle2, Sparkles, Mic, ImagePlus, FileText,
   Clock3, PanelsTopLeft, Workflow, Laptop, Wrench, Compass, ArrowRight,
   RefreshCcw, Link2, Users, Headphones, Table2, Camera, LayoutGrid,
-  School, Share2, Lightbulb, ChevronDown, ChevronRight, AlertTriangle,
-  Zap, Target, Eye, Layers, ArrowUpRight, Menu, X, Hash, MessageSquare,
-  Database, Cpu, Lock, BookMarked, Puzzle, CircleDot, Play, Pause
+  School, Share2, Lightbulb, ChevronDown, AlertTriangle, Eye,
+  Layers, MessageSquare, Database
 } from "lucide-react";
 
-/* ─────────────────────────────────────────────
-   FONT LOADER
-   ───────────────────────────────────────────── */
-const FontLoader = () => (
+const GlobalStyles = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;1,9..144,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
-    :root {
-      --font-display: 'Fraunces', 'Georgia', serif;
-      --font-body: 'DM Sans', system-ui, sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
-      --green-deep: #0A3D2E;
-      --green-mid: #10a37f;
-      --green-light: #E8F5EE;
-      --cream: #FAF8F4;
-      --cream-dark: #F0EDE6;
-      --ink: #1A1A1A;
-      --ink-light: #6B6B6B;
-      --ink-muted: #9B9B9B;
-      --border: #E2DFD8;
-      --border-light: #ECEAE4;
-      --amber-warm: #F59E0B;
-      --rose-accent: #E11D48;
-    }
-    * { font-family: var(--font-body); }
-    h1, h2, h3, .font-display { font-family: var(--font-display); }
-    code, .font-mono { font-family: var(--font-mono); }
-    .scrollbar-hide::-webkit-scrollbar { display: none; }
-    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(12px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .animate-fade-up { animation: fadeUp 0.5s ease-out forwards; }
-    @keyframes shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
-    details summary::-webkit-details-marker { display: none; }
-    details summary { list-style: none; }
+    .ff-display { font-family: 'Fraunces', Georgia, serif; }
+    .ff-body { font-family: 'DM Sans', system-ui, sans-serif; }
+    .ff-mono { font-family: 'JetBrains Mono', monospace; }
+    * { font-family: 'DM Sans', system-ui, sans-serif; }
+    .clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   `}</style>
 );
 
-/* ─────────────────────────────────────────────
-   CONSTANTS & DATA
-   ───────────────────────────────────────────── */
-const VERIFIED_DATE = "March 12, 2026";
+const C = {
+  cream: "#FAF8F4", creamDark: "#F0EDE6", ink: "#1A1A1A", inkLight: "#6B6B6B",
+  inkMuted: "#9B9B9B", border: "#E2DFD8", borderLight: "#ECEAE4",
+  greenDeep: "#0A3D2E", greenMid: "#10a37f", greenLight: "#E8F5EE", roseAccent: "#E11D48",
+};
 
+const VERIFIED_DATE = "March 12, 2026";
 const LEVELS = [
-  { key: "all", label: "All Levels" },
-  { key: "foundation", label: "Foundation" },
-  { key: "core", label: "Core Skills" },
-  { key: "power", label: "Power Features" },
-  { key: "expert", label: "Expert" },
+  { key: "all", label: "All" }, { key: "foundation", label: "Foundation" },
+  { key: "core", label: "Core" }, { key: "power", label: "Power" }, { key: "expert", label: "Expert" },
 ];
 
 const CORE_FEATURES = [
-  { title: "Search", icon: Globe, color: "#0284c7", description: "Real-time web results for current facts, prices, news, laws, schedules, and anything that changes.", when: "Anything that might have changed since the model's training cutoff." },
-  { title: "Deep Research", icon: Search, color: "#4f46e5", description: "Multi-step documented research across web sources, uploaded files, and connected apps.", when: "You need a report with sources, not a quick answer." },
-  { title: "Projects", icon: FolderOpen, color: "#059669", description: "Persistent workspace with shared files, custom instructions, and conversation memory.", when: "Any work you will revisit: courses, clients, startups, personal systems." },
-  { title: "Memory", icon: Database, color: "#d97706", description: "Stores durable preferences and recurring context that carries across conversations.", when: "Preferences and patterns, not exact document storage." },
-  { title: "Custom Instructions", icon: Settings, color: "#57534e", description: "Always-on behavior rules for tone, formatting, response structure, and boundaries.", when: "You want every chat to follow your house rules by default." },
-  { title: "Canvas", icon: PanelsTopLeft, color: "#334155", description: "A visible drafting surface for writing and code that supports targeted inline edits.", when: "Iterative editing of long-form text or code files." },
-  { title: "Tasks", icon: Clock3, color: "#7c3aed", description: "Schedule one-time or recurring outputs that execute later and notify you.", when: "Reminders, daily briefs, recurring summaries." },
-  { title: "Apps (Connectors)", icon: Wrench, color: "#0d9488", description: "Connect external tools — Google Drive, Slack, email — so ChatGPT can read and act on your data.", when: "The best context for your question lives outside of chat." },
-  { title: "Agent", icon: Workflow, color: "#16a34a", description: "Autonomous execution across browsers, files, code, and connected apps for complex multi-step tasks.", when: "The job involves navigating sites, filling forms, or chaining multiple actions." },
-  { title: "Custom GPTs", icon: Bot, color: "#44403c", description: "Reusable assistants with stable instructions, knowledge files, and selected capabilities.", when: "A workflow repeats often enough to formalize." },
-  { title: "Voice", icon: Mic, color: "#e11d48", description: "Spoken interaction for low-friction thinking, brainstorming, and conversational exploration.", when: "You want to think out loud or multitask." },
-  { title: "Images", icon: ImagePlus, color: "#c026d3", description: "Upload images for analysis, generate new images from descriptions, and edit images inline.", when: "Visual understanding, creation, or refinement." },
-  { title: "Files & Data", icon: FileText, color: "#0891b2", description: "Upload PDFs, spreadsheets, documents, and structured data for analysis with code execution.", when: "You need charts, summaries, calculations, or structured analysis." },
-  { title: "Models", icon: Brain, color: "#65a30d", description: "Choose between speed-optimized, balanced, and reasoning-heavy modes depending on the job.", when: "Match model power to task complexity — do not always default to the strongest." },
+  { title: "Search", icon: Globe, color: "#0284c7", description: "Real-time web results for current facts, prices, news, laws, and anything that changes.", when: "Anything that might have changed since the model's training cutoff." },
+  { title: "Deep Research", icon: Search, color: "#4f46e5", description: "Multi-step documented research across web sources, files, and connected apps.", when: "You need a report with sources, not a quick answer." },
+  { title: "Projects", icon: FolderOpen, color: "#059669", description: "Persistent workspace with shared files, custom instructions, and conversation memory.", when: "Any work you will revisit: courses, clients, startups." },
+  { title: "Memory", icon: Database, color: "#d97706", description: "Stores durable preferences and recurring context across conversations.", when: "Preferences and patterns, not exact document storage." },
+  { title: "Custom Instructions", icon: Settings, color: "#57534e", description: "Always-on behavior rules for tone, formatting, and response structure.", when: "You want every chat to follow your rules by default." },
+  { title: "Canvas", icon: PanelsTopLeft, color: "#334155", description: "A visible drafting surface for writing and code with targeted inline edits.", when: "Iterative editing of long-form text or code." },
+  { title: "Tasks", icon: Clock3, color: "#7c3aed", description: "Schedule outputs that execute later and notify you.", when: "Reminders, daily briefs, recurring summaries." },
+  { title: "Apps (Connectors)", icon: Wrench, color: "#0d9488", description: "Connect external tools so ChatGPT can read and act on your data.", when: "Best context lives outside chat." },
+  { title: "Agent", icon: Workflow, color: "#16a34a", description: "Autonomous execution across browsers, files, code, and connected apps.", when: "Multi-step tasks across sites and actions." },
+  { title: "Custom GPTs", icon: Bot, color: "#44403c", description: "Reusable assistants with stable instructions and knowledge files.", when: "A workflow repeats often enough to formalize." },
+  { title: "Voice", icon: Mic, color: "#e11d48", description: "Spoken interaction for low-friction thinking and exploration.", when: "Think out loud or multitask." },
+  { title: "Images", icon: ImagePlus, color: "#c026d3", description: "Upload for analysis, generate from descriptions, and edit inline.", when: "Visual understanding, creation, or refinement." },
+  { title: "Files & Data", icon: FileText, color: "#0891b2", description: "Upload PDFs, spreadsheets, documents for analysis with code execution.", when: "Charts, summaries, calculations." },
+  { title: "Models", icon: Brain, color: "#65a30d", description: "Choose speed-optimized, balanced, or reasoning-heavy modes.", when: "Match power to task complexity." },
 ];
 
 const ADDITIONAL_FEATURES = [
-  { title: "Study Mode", icon: School, color: "#059669", description: "Guided learning with questions, staged explanations, and comprehension checks instead of direct answers." },
-  { title: "Record", icon: Headphones, color: "#0284c7", description: "Capture spoken meetings, lectures, or notes, then produce summaries and reusable artifacts." },
-  { title: "Group Chats", icon: Users, color: "#7c3aed", description: "Invite other people into the same conversation for shared planning and collaborative work." },
-  { title: "Shared Links", icon: Link2, color: "#57534e", description: "Share a conversation via URL instead of screenshots or copy-paste." },
-  { title: "Image Editing", icon: Camera, color: "#c026d3", description: "Select a region of a generated image and refine, replace, or remove parts with natural language." },
-  { title: "Interactive Tables", icon: Table2, color: "#0891b2", description: "Inspect uploaded tabular data in a visual table before requesting charts, summaries, or conclusions." },
-  { title: "Skills", icon: Share2, color: "#0d9488", description: "Reusable workflows that teach ChatGPT to perform specific jobs with greater consistency." },
-  { title: "Pulse", icon: Sparkles, color: "#4f46e5", description: "Asynchronous research that proactively brings back visual summaries on topics you care about." },
+  { title: "Study Mode", icon: School, color: "#059669", description: "Guided learning with questions and comprehension checks." },
+  { title: "Record", icon: Headphones, color: "#0284c7", description: "Capture spoken meetings, then produce summaries." },
+  { title: "Group Chats", icon: Users, color: "#7c3aed", description: "Invite others into a conversation for shared planning." },
+  { title: "Shared Links", icon: Link2, color: "#57534e", description: "Share a conversation via URL." },
+  { title: "Image Editing", icon: Camera, color: "#c026d3", description: "Select and refine regions of generated images." },
+  { title: "Interactive Tables", icon: Table2, color: "#0891b2", description: "Inspect uploaded data visually before analysis." },
+  { title: "Skills", icon: Share2, color: "#0d9488", description: "Reusable workflows for consistent repeated jobs." },
+  { title: "Pulse", icon: Sparkles, color: "#4f46e5", description: "Async research that brings back visual summaries." },
 ];
 
 const TOOL_CHOOSER = [
-  { goal: "Quick answer or one-off draft", tool: "Normal Chat", icon: MessageSquare, reason: "Lowest friction. No setup needed." },
-  { goal: "Up-to-date information", tool: "Search", icon: Globe, reason: "Anything that may have changed since training." },
-  { goal: "Ongoing work with files", tool: "Project", icon: FolderOpen, reason: "Preserves context, files, and instructions across sessions." },
-  { goal: "Edit a long document or code", tool: "Canvas", icon: PanelsTopLeft, reason: "Better than linear chat for surgical revision." },
-  { goal: "Multi-source documented report", tool: "Deep Research", icon: Search, reason: "Built for multi-step synthesis with citations." },
-  { goal: "Complex online task", tool: "Agent", icon: Workflow, reason: "Best when the job crosses multiple sites and actions." },
-  { goal: "Scheduled or recurring output", tool: "Tasks", icon: Clock3, reason: "Runs asynchronously and notifies when done." },
-  { goal: "Repeat the same workflow often", tool: "GPT or Skill", icon: Bot, reason: "Turn stable patterns into reusable systems." },
+  { goal: "Quick answer or draft", tool: "Normal Chat", icon: MessageSquare, reason: "Lowest friction." },
+  { goal: "Current information", tool: "Search", icon: Globe, reason: "Anything that may have changed." },
+  { goal: "Ongoing work with files", tool: "Project", icon: FolderOpen, reason: "Preserves context across sessions." },
+  { goal: "Edit a long document", tool: "Canvas", icon: PanelsTopLeft, reason: "Better for surgical revision." },
+  { goal: "Multi-source report", tool: "Deep Research", icon: Search, reason: "Multi-step synthesis with citations." },
+  { goal: "Complex online task", tool: "Agent", icon: Workflow, reason: "Crosses multiple sites and actions." },
+  { goal: "Recurring output", tool: "Tasks", icon: Clock3, reason: "Runs async, notifies you." },
+  { goal: "Same workflow often", tool: "GPT or Skill", icon: Bot, reason: "Turn patterns into systems." },
 ];
 
 const PROMPT_BLOCKS = [
   { label: "Goal", example: "Write a one-page project brief for an investor meeting.", color: "#10a37f" },
-  { label: "Context", example: "The startup is pre-revenue, Series A stage, in climate tech.", color: "#0284c7" },
-  { label: "Constraints", example: "Keep it under 400 words. No jargon. No bullet points.", color: "#7c3aed" },
-  { label: "Output Format", example: "Structured as: Problem → Solution → Traction → Ask.", color: "#d97706" },
-  { label: "Quality Bar", example: "Write at the level of a McKinsey associate, not a template.", color: "#e11d48" },
-  { label: "Verification", example: "Flag any claim that needs a source before I send this.", color: "#334155" },
+  { label: "Context", example: "The startup is pre-revenue, Series A, climate tech.", color: "#0284c7" },
+  { label: "Constraints", example: "Under 400 words. No jargon. No bullet points.", color: "#7c3aed" },
+  { label: "Format", example: "Structured as: Problem, Solution, Traction, Ask.", color: "#d97706" },
+  { label: "Quality", example: "Write at McKinsey associate level, not a template.", color: "#e11d48" },
+  { label: "Verify", example: "Flag any claim that needs a source.", color: "#334155" },
 ];
 
-/* ─────────────────────────────────────────────
-   GUIDE SECTIONS — EXPANDED CONTENT
-   ───────────────────────────────────────────── */
 const GUIDE_SECTIONS = [
-  {
-    id: "mental-model",
-    level: "foundation",
-    number: "01",
-    title: "Start with the right mental model",
-    icon: Brain,
-    color: "#65a30d",
-    summary: "Treat ChatGPT as a reasoning and language partner, not as an infallible oracle. Its first response is typically a useful draft — not the final truth. The strongest users treat every output as provisional until inspected.",
-    whyItMatters: "Most disappointing results stem from a mismatch in expectations. Users who expect certainty get frustrated; users who expect a skilled first draft get extraordinary leverage.",
-    beginnerMoves: [
-      "Assume the first answer is a draft. Read it critically before relying on it.",
-      "Ask what assumptions were made before you act on the result.",
-      "Use ChatGPT to accelerate your judgment, not to replace it.",
-    ],
-    advancedMoves: [
-      "Ask for the strongest counter-argument against its own recommendation.",
-      "Separate exploration (brainstorming), recommendation (synthesis), and risk review (stress-testing) into distinct passes.",
-      "Use the model as a second opinion, not the primary decision-maker, on anything consequential.",
-    ],
-    commonMistakes: [
-      "Trusting numerical claims without verification — the model generates plausible numbers, not always correct ones.",
-      "Assuming silence means confidence — if the model does not flag uncertainty, it does not mean certainty exists.",
-      "Copying outputs verbatim without reading them through once, as a human reader would.",
-    ],
-    promptExamples: [
-      { prompt: "What assumptions did you make in your last answer?", why: "Forces the model to surface hidden reasoning." },
-      { prompt: "What would a skeptical domain expert challenge here?", why: "Produces adversarial review of its own work." },
-      { prompt: "Give me the strongest argument against your recommendation.", why: "Prevents confirmation bias in the output." },
-      { prompt: "Rate your confidence in each claim from 1 to 5 and explain why.", why: "Separates high-confidence facts from speculation." },
-    ],
-    beforeAfter: {
-      before: "Write me a business plan for a coffee shop.",
-      after: "Draft a one-page business plan for a specialty coffee shop in downtown Boston. Target audience: graduate students and remote workers. Include realistic revenue assumptions and flag anything you estimated rather than sourced.",
-      improvement: "Adds context, audience, location, quality bar, and a verification rule."
-    },
-    visual: "mental",
-  },
-  {
-    id: "workspace",
-    level: "foundation",
-    number: "02",
-    title: "Learn the workspace before obsessing over prompts",
-    icon: Laptop,
-    color: "#059669",
-    summary: "Modern ChatGPT is a layered workspace, not a single text box. Different jobs belong in different layers: normal chat, projects, search, canvas, deep research, tasks, apps, or agent. A decent prompt in the correct layer almost always outperforms a clever prompt in the wrong one.",
-    whyItMatters: "Choosing the right workspace is the highest-leverage decision you make before typing a single word. Most users underuse projects, canvas, and tasks because they never learned the layers exist.",
-    beginnerMoves: [
-      "Use normal chat for quick, one-off questions and drafts.",
-      "Use a Project for any work you will revisit more than once.",
-      "Use Temporary Chat when you want a completely blank slate with no memory.",
-    ],
-    advancedMoves: [
-      "Split your work by domain (one project per course, client, or initiative) rather than mixing everything into one conversation.",
-      "Treat projects as long-term knowledge hubs — upload reference files, set project-specific instructions, and return to the same workspace.",
-      "Use canvas for documents and code that need iterative editing; keep strategy discussion in chat.",
-    ],
-    commonMistakes: [
-      "Starting a new chat every time instead of returning to the relevant project.",
-      "Using chat for long documents when canvas would allow targeted inline edits.",
-      "Ignoring tasks and agent entirely — these are the operational layer most users never discover.",
-    ],
-    promptExamples: [
-      { prompt: "Help me decide: should this be a normal chat, a project, or a GPT?", why: "Uses the model itself to pick the right workspace." },
-      { prompt: "List the ideal project structure for managing my semester coursework.", why: "Plans workspace architecture before diving into content." },
-      { prompt: "What files and instructions should I add to this project to get the best results?", why: "Optimizes project context for recurring use." },
-    ],
-    beforeAfter: {
-      before: "I keep starting new chats for my thesis research and losing context.",
-      after: "Create a Project called 'MS Thesis — [topic]'. Upload my literature review PDF, set instructions to always use APA style and a formal academic tone, and start our first research conversation inside it.",
-      improvement: "Moves from ephemeral chats to a persistent, context-aware workspace."
-    },
-    visual: "layers",
-  },
-  {
-    id: "prompting",
-    level: "foundation",
-    number: "03",
-    title: "Prompting fundamentals: clarity beats cleverness",
-    icon: PenTool,
-    color: "#0284c7",
-    summary: "Good prompts are operating briefs, not magic spells. Fancy wording is optional; clear constraints are not. The model cannot see the standards in your head unless you write them down. Specificity compounds — every concrete detail you add narrows the output toward what you actually need.",
-    whyItMatters: "Vague prompts produce generic outputs. Most frustration with AI writing quality traces back to under-specified inputs, not model limitations.",
-    beginnerMoves: [
-      "Name the audience and the actual use case — 'for a professor email' not 'write something formal.'",
-      "State what success looks like before asking for the output.",
-      "Specify format, tone, length, and what to explicitly avoid.",
-    ],
-    advancedMoves: [
-      "Ask for the outline first, approve it, then request the full draft. This two-step pattern prevents structural rewrites.",
-      "Separate facts from interpretation when doing research: 'List the facts first, then give me your analysis separately.'",
-      "Provide a rubric or checklist the model should grade itself against before delivering the final answer.",
-    ],
-    commonMistakes: [
-      "Writing a three-word prompt and expecting a tailored result.",
-      "Adding too many constraints at once — start focused, then refine in the next turn.",
-      "Asking 'Can you…?' instead of directly stating what you want. The model will always say yes; skip to the instruction.",
-    ],
-    promptExamples: [
-      { prompt: "My goal is ___. Context: ___. Constraints: ___. Produce ___.", why: "The universal prompt skeleton — works for nearly everything." },
-      { prompt: "Show me the outline first. Do not draft the full answer yet.", why: "Prevents wasted effort on the wrong structure." },
-      { prompt: "Before writing, tell me what you still need to know.", why: "Lets the model ask clarifying questions before committing." },
-      { prompt: "Write this as if you are a [specific role] explaining to [specific audience].", why: "Anchors tone and depth simultaneously." },
-    ],
-    beforeAfter: {
-      before: "Write a cover letter.",
-      after: "Write a cover letter for a Strategy Analyst role at McKinsey. I am a graduate student in International Management with prior experience in SOP development and CRM systems. Tone: confident but not arrogant. Length: 350 words. Do not use the phrase 'I am passionate about.'",
-      improvement: "Adds role, background, tone, length, and a negative constraint."
-    },
-    visual: "prompt",
-  },
-  {
-    id: "revision",
-    level: "core",
-    number: "04",
-    title: "Use revision workflows, not one-shot perfection",
-    icon: RefreshCcw,
-    color: "#7c3aed",
-    summary: "Strong ChatGPT use is iterative. The practical pattern is: frame the job, get a draft, critique it, revise with a narrower target, then package the final output. Most users restart from scratch when they should be refining the existing answer instead.",
-    whyItMatters: "One-shot prompting caps your output quality at whatever the model produces on the first try. Revision workflows consistently produce higher-quality results because each pass adds specificity.",
-    beginnerMoves: [
-      "After the first draft, ask 'What is weak or missing in your last answer?' before you manually rewrite.",
-      "Request revision with a narrower target: 'Tighten the argument in paragraph 2.'",
-      "Do not restart the conversation unless the fundamental direction is wrong.",
-    ],
-    advancedMoves: [
-      "Use fixed passes: structure → factual accuracy → tone → compression → final packaging.",
-      "Ask the model to critique itself before asking it to rewrite — self-diagnosis improves the revision.",
-      "Specify a compression ratio: 'Cut this by 30% without losing any essential information.'",
-    ],
-    commonMistakes: [
-      "Rewriting everything manually instead of asking the model to diagnose and fix its own work.",
-      "Giving vague feedback like 'make it better' — this produces unpredictable changes.",
-      "Running too many passes — three targeted rounds usually outperform six unfocused ones.",
-    ],
-    promptExamples: [
-      { prompt: "Tell me why your last answer did not fully meet the goal I stated.", why: "Self-diagnosis before revision produces targeted fixes." },
-      { prompt: "Revise for sharper business logic and tighter evidence. Do not change the structure.", why: "Constrains the revision scope." },
-      { prompt: "Compress this by 35% without losing anything essential.", why: "Forces prioritization without manual editing." },
-      { prompt: "Grade your output against these criteria: [list]. Where did you score below 4/5?", why: "Structured self-evaluation before final revision." },
-    ],
-    beforeAfter: {
-      before: "That's not quite right. Try again.",
-      after: "The argument in section 2 is circular. Rewrite it with a concrete data point from the uploaded report. Keep the rest unchanged.",
-      improvement: "Specifies exactly what is wrong, what to fix, and what to preserve."
-    },
-    visual: "workflow",
-  },
-  {
-    id: "writing",
-    level: "core",
-    number: "05",
-    title: "Writing, rewriting, and transformation",
-    icon: FileText,
-    color: "#57534e",
-    summary: "ChatGPT is exceptionally strong at transformation work: rewriting for a different audience, changing tone, summarizing, reorganizing structure, comparing versions, simplifying dense text, and tightening prose. It is often better at improving existing text than inventing the ideal draft from nothing.",
-    whyItMatters: "Most professional writing is transformation, not creation — reformatting notes into emails, condensing reports, adjusting tone for different stakeholders. This is where AI assistance has the highest return.",
-    beginnerMoves: [
-      "Paste the original text and clearly state what must stay and what must change.",
-      "Specify audience, channel (email, Slack, report), and tone.",
-      "Ask for multiple versions when tone is uncertain — then pick the best one.",
-    ],
-    advancedMoves: [
-      "Use contrastive versions: 'Give me three variants: formal, concise, and persuasive.'",
-      "Ask for sentence-level diagnosis: 'Which specific sentences feel generic and why?'",
-      "Request a style transfer: 'Rewrite this in the style of [publication/author], maintaining my facts.'",
-    ],
-    commonMistakes: [
-      "Letting ChatGPT write from scratch when you have existing notes or drafts to transform.",
-      "Accepting the first tone without exploring alternatives.",
-      "Not specifying what to preserve — the model may change things you wanted kept intact.",
-    ],
-    promptExamples: [
-      { prompt: "Rewrite this for a professor email: respectful, direct, natural, no fluff.", why: "Precise transformation with tone and format constraints." },
-      { prompt: "Give me three versions: formal, concise, and more persuasive.", why: "Contrastive outputs let you pick or blend the best elements." },
-      { prompt: "Tell me exactly which sentences feel generic and why.", why: "Line-level diagnosis is more useful than vague critique." },
-      { prompt: "Keep my facts and structure. Only change the tone to be warmer and less corporate.", why: "Scoped transformation with clear preservation rules." },
-    ],
-    beforeAfter: {
-      before: "Make this email better.",
-      after: "Rewrite this email for my program director. Tone: respectful and direct, not sycophantic. Remove any corporate jargon. Keep it under 150 words. Preserve the three action items at the end.",
-      improvement: "Specifies audience, tone, anti-patterns, length, and preservation rules."
-    },
-    visual: "writing",
-  },
-  {
-    id: "files-data",
-    level: "core",
-    number: "06",
-    title: "Files, PDFs, spreadsheets, and data",
-    icon: Table2,
-    color: "#0891b2",
-    summary: "ChatGPT can inspect uploaded files, summarize documents, execute code on tabular data, and produce charts and visualizations. The key to quality is sequencing: describe the data first, then analyze, then conclude. Jumping straight to conclusions skips the audit step where most errors occur.",
-    whyItMatters: "File-based work becomes dramatically stronger when you ask the model to inspect the data before interpreting it. Skipping inspection is the single most common source of incorrect data analysis.",
-    beginnerMoves: [
-      "Ask what the file contains before asking what it means.",
-      "For datasets, request a field audit first: columns, date range, missing values, obvious anomalies.",
-      "For PDFs, separate structure, argument, evidence, and critique into distinct steps.",
-    ],
-    advancedMoves: [
-      "Require an explicit audit trail: 'List every assumption and transformation you used to produce this chart.'",
-      "Ask the model to restate extracted tables cleanly before drawing conclusions.",
-      "Use code execution for large datasets — ChatGPT can run Python with pandas, matplotlib, and more.",
-    ],
-    commonMistakes: [
-      "Uploading a spreadsheet and immediately asking 'What are the key insights?' without auditing the data first.",
-      "Trusting chart labels without verifying the underlying calculations.",
-      "Assuming the model can read every PDF perfectly — scanned documents and complex layouts sometimes need OCR help.",
-    ],
-    promptExamples: [
-      { prompt: "Describe this dataset first: fields, date range, missing values, and likely analysis options.", why: "Audit before analysis catches errors early." },
-      { prompt: "Extract the core argument of this PDF before critiquing it.", why: "Separates comprehension from judgment." },
-      { prompt: "List every assumption you used to produce this chart.", why: "Creates a reviewable audit trail." },
-      { prompt: "Write Python code to clean this data, then run it and show me the result.", why: "Uses code execution for reproducible analysis." },
-    ],
-    beforeAfter: {
-      before: "What are the key insights from this spreadsheet?",
-      after: "First, audit this spreadsheet: list all columns, data types, date range, missing values, and any anomalies. Then propose three analysis approaches ranked by likely usefulness. Do not run any analysis until I approve an approach.",
-      improvement: "Adds an inspection step, proposes before executing, and requires approval."
-    },
-    visual: "data",
-  },
-  {
-    id: "search-research",
-    level: "core",
-    number: "07",
-    title: "Search, deep research, and citation discipline",
-    icon: Search,
-    color: "#4f46e5",
-    summary: "Use Search for current answers backed by real sources. Use Deep Research for longer, multi-step reports that synthesize across web pages, files, and connected apps. Anything current, regulated, local, controversial, or fast-changing should never rely on the model's static memory alone.",
-    whyItMatters: "ChatGPT without search is answering from a frozen snapshot of the world. For anything that changes — prices, laws, personnel, events — you need live retrieval to avoid confidently stated outdated information.",
-    beginnerMoves: [
-      "Use Search for anything that may have changed recently: stock prices, news, company leadership, legislation.",
-      "Inspect whether a cited source actually supports the specific claim being made.",
-      "Prefer primary sources (company filings, government sites, peer-reviewed papers) when stakes are high.",
-    ],
-    advancedMoves: [
-      "Force a split between confirmed facts and reasoned inference: 'Separate what is confirmed from what is your inference.'",
-      "Specify acceptable source types, geographic region, and date horizon.",
-      "Use Deep Research for comprehensive reports, but define the scope before it begins.",
-    ],
-    commonMistakes: [
-      "Trusting model knowledge for current events without enabling search.",
-      "Accepting a claim as 'sourced' without clicking through to verify the source actually says what was attributed.",
-      "Using Deep Research for a quick factual question — it is built for synthesis, not speed.",
-    ],
-    promptExamples: [
-      { prompt: "Search the web and answer with current primary sources only.", why: "Forces live retrieval with source quality constraints." },
-      { prompt: "Separate confirmed facts from your inference. Label each clearly.", why: "Makes epistemic status transparent." },
-      { prompt: "What in this answer could become outdated within six months?", why: "Identifies time-sensitive claims proactively." },
-      { prompt: "Use Deep Research to produce a documented report on [topic]. Scope: [region, date range, source types].", why: "Gives Deep Research a defined job brief." },
-    ],
-    beforeAfter: {
-      before: "What's the latest on AI regulation?",
-      after: "Search for the latest AI regulation developments in the EU and US from the past 30 days. Cite primary sources only (official government publications, not opinion pieces). Separate enacted legislation from proposed bills.",
-      improvement: "Adds geographic scope, time range, source quality, and categorization rules."
-    },
-    visual: "research",
-  },
-  {
-    id: "multimodal",
-    level: "core",
-    number: "08",
-    title: "Voice, images, and multimodal workflows",
-    icon: ImagePlus,
-    color: "#c026d3",
-    summary: "ChatGPT is no longer text-only. Voice input, image understanding, image generation, and image editing are standard parts of the product. The key to quality is specificity — vague visual requests produce generic results, just as vague text prompts do.",
-    whyItMatters: "Multimodal capabilities turn ChatGPT into a visual analysis tool, a creative image studio, and a hands-free brainstorming partner simultaneously. Most users underutilize these modes.",
-    beginnerMoves: [
-      "Tell ChatGPT exactly what you want done with an uploaded image — do not just say 'What do you think?'",
-      "Use voice mode when speed matters more than polished phrasing, or when you are multitasking.",
-      "For image generation, specify subject, framing, mood, lighting, and style explicitly.",
-    ],
-    advancedMoves: [
-      "Chain modes together: analyze an image → explain it in text → turn the explanation into notes or slides.",
-      "Use image critique prompts for design review: 'Evaluate this UI screenshot for visual hierarchy and accessibility.'",
-      "For image editing, select a specific region and describe precisely what should change.",
-    ],
-    commonMistakes: [
-      "Uploading an image with no instructions — the model will guess what you want, and it will guess wrong.",
-      "Expecting photorealistic results from vague descriptions.",
-      "Forgetting that voice mode conversations carry the same context as text conversations in the same chat.",
-    ],
-    promptExamples: [
-      { prompt: "Extract all menu items from this photo and organize them by category with English translations.", why: "Specific extraction task with clear output structure." },
-      { prompt: "Explain this chart to a non-technical executive in under 120 words.", why: "Visual analysis with audience and length constraints." },
-      { prompt: "Generate an image: vertical 9:16, cinematic composition, minimal clutter, warm golden-hour lighting.", why: "Technical photography-style specification for image generation." },
-      { prompt: "In the generated image, replace only the background with a clean white studio setting. Keep the subject exactly as is.", why: "Scoped image editing with preservation rules." },
-    ],
-    beforeAfter: {
-      before: "Make me a cool image.",
-      after: "Generate a 16:9 illustration of a modern Tokyo coffee shop interior at dusk. Style: architectural photography with shallow depth of field. Mood: warm, contemplative. Include: wooden counter, espresso machine, floor-to-ceiling windows showing city lights. No people.",
-      improvement: "Adds every visual parameter: aspect ratio, subject, style, mood, elements, and exclusions."
-    },
-    visual: "multimodal",
-  },
-  {
-    id: "study-collab",
-    level: "power",
-    number: "09",
-    title: "Study mode, record, group chats, shared links, and skills",
-    icon: LayoutGrid,
-    color: "#0d9488",
-    summary: "Some of the most useful features are not about asking or generating. They help you learn, capture spoken content, collaborate, share, and formalize workflows. These features change how ChatGPT fits into classrooms, teamwork, and repeated real-life processes.",
-    whyItMatters: "Learning is not the same as getting answers. Collaboration is not the same as solo prompting. These features address fundamentally different use cases that text chat alone cannot serve well.",
-    beginnerMoves: [
-      "Use Study Mode when you want to learn the material, not just get the answer.",
-      "Use Record for meetings, brainstorms, lectures, or voice notes — then turn the capture into structured artifacts.",
-      "Use Shared Links and Group Chats to collaborate without screenshots or copy-paste.",
-    ],
-    advancedMoves: [
-      "Turn recorded meeting summaries into project source files for ongoing reference.",
-      "Use Skills to formalize repeated jobs so the workflow does not need rebuilding each time.",
-      "Combine Group Chats with a Project to give multiple collaborators shared context.",
-    ],
-    commonMistakes: [
-      "Using normal chat to study — it gives you the answer immediately, which defeats the learning purpose.",
-      "Forgetting that Record exists — many users manually type meeting notes when voice capture is available.",
-      "Sharing full conversations via screenshot instead of using the Shared Link feature.",
-    ],
-    promptExamples: [
-      { prompt: "Quiz me on this material instead of telling me the answers directly.", why: "Engages Study Mode's pedagogical approach." },
-      { prompt: "Turn this meeting recording into action items, owner assignments, and a follow-up email draft.", why: "Multi-output transformation of a voice capture." },
-      { prompt: "Convert this repeated workflow into a reusable Skill with clear input/output definitions.", why: "Formalizes a stable process for reuse." },
-    ],
-    beforeAfter: {
-      before: "Explain photosynthesis to me.",
-      after: "I am studying for my biology exam on photosynthesis. Do not explain it to me directly. Instead, ask me questions to check my understanding, starting from basic concepts and building up. Correct my mistakes with brief explanations.",
-      improvement: "Switches from answer-delivery to guided learning."
-    },
-    visual: "collab",
-  },
-  {
-    id: "personalization",
-    level: "power",
-    number: "10",
-    title: "Memory, custom instructions, personality, and temporary chat",
-    icon: Database,
-    color: "#d97706",
-    summary: "These four controls are related but not interchangeable. Memory stores recurring context. Custom Instructions set always-on behavior rules. Personality adjusts style. Temporary Chat creates a clean room. Confusing these layers creates inconsistent or over-personalized results.",
-    whyItMatters: "Personalization is a system, not a single setting. Each layer has a specific job, and misconfigured personalization degrades results more often than it improves them.",
-    beginnerMoves: [
-      "Keep memory for broad, stable preferences only — job title, language, preferred response style.",
-      "Put global writing rules in Custom Instructions — always use APA format, never use bullet points, etc.",
-      "Use Temporary Chat when you need a session with no memory carryover.",
-    ],
-    advancedMoves: [
-      "Treat Personality as texture (warm, concise, direct) — not as a replacement for explicit instructions.",
-      "Use project-specific instructions instead of stuffing every rule into global Custom Instructions.",
-      "Periodically audit your memory: ask 'What do you currently remember about me?' and clean up anything outdated.",
-    ],
-    commonMistakes: [
-      "Putting everything in memory instead of using Custom Instructions for behavioral rules.",
-      "Not realizing that memory can accumulate stale or incorrect information over time.",
-      "Using Personality to try to change the model's capabilities — it only changes style, not skill.",
-    ],
-    promptExamples: [
-      { prompt: "What do you currently remember about me?", why: "Audits memory for accuracy and relevance." },
-      { prompt: "Forget the preference about always using formal tone.", why: "Targeted memory cleanup." },
-      { prompt: "Treat this chat as a blank-slate consultation. Do not use any stored preferences.", why: "Clean-room mode without switching to Temporary Chat." },
-    ],
-    beforeAfter: {
-      before: "I set all my preferences in memory but my results are inconsistent.",
-      after: "Move stable behavior rules (tone, formatting, never-do rules) into Custom Instructions. Keep only factual context (job, location, ongoing projects) in Memory. Use project-level instructions for domain-specific rules.",
-      improvement: "Separates personalization into the correct layers."
-    },
-    visual: "memory",
-  },
-  {
-    id: "projects",
-    level: "power",
-    number: "11",
-    title: "Projects as your real operating system",
-    icon: FolderOpen,
-    color: "#16a34a",
-    summary: "Projects are where ChatGPT stops feeling like a chatbot and starts feeling like a context-aware workbench. A well-configured project with uploaded files, custom instructions, and conversation history outperforms any single-chat interaction, no matter how clever the prompt.",
-    whyItMatters: "For any work that spans multiple sessions — academic courses, client engagements, product development, personal systems — projects are the highest-leverage organizational tool in ChatGPT.",
-    beginnerMoves: [
-      "Create one project per major workstream. Name it clearly.",
-      "Upload only relevant context files — quality matters more than quantity.",
-      "Write project-specific instructions that describe the ongoing purpose and recurring conventions.",
-    ],
-    advancedMoves: [
-      "Use projects as living knowledge bases: add summaries of past conversations as new source files.",
-      "Keep weekly work inside one project rather than starting fresh chats each session.",
-      "Set up a 'meta-project' for personal productivity: goals, schedules, reflection templates.",
-    ],
-    commonMistakes: [
-      "Creating too many narrow projects instead of a well-scoped set of broadly useful ones.",
-      "Uploading every file you have — the model gets confused when context is bloated and unfocused.",
-      "Not writing project instructions — the project becomes just a folder instead of a context-aware workspace.",
-    ],
-    promptExamples: [
-      { prompt: "Design the ideal project structure for managing my coursework this semester.", why: "Plans the workspace before filling it with content." },
-      { prompt: "Given everything in this project, draft a memo consistent with prior decisions.", why: "Leverages accumulated project context for coherent output." },
-      { prompt: "Summarize the key decisions from our last five conversations in this project.", why: "Creates a living summary for future reference." },
-    ],
-    beforeAfter: {
-      before: "I have files everywhere and keep losing track of context across chats.",
-      after: "Create a project for each domain. Upload reference files. Write instructions. Return to the same project for related work. Periodically summarize and archive old conversations into a project source file.",
-      improvement: "Replaces scattered conversations with a structured, persistent workspace."
-    },
-    visual: "project",
-  },
-  {
-    id: "gpts",
-    level: "power",
-    number: "12",
-    title: "When to build a GPT and when not to",
-    icon: Bot,
-    color: "#44403c",
-    summary: "A custom GPT is useful when a workflow repeats often, has stable instructions, and benefits from a reusable interface. But most people build GPTs too early — before the workflow is proven and stable. Start with saved prompts. Only formalize a GPT after the pattern clearly repeats.",
-    whyItMatters: "A premature GPT bakes in an immature workflow. A well-timed GPT turns a proven process into a one-click tool that anyone can use.",
-    beginnerMoves: [
-      "Save successful prompts before building a GPT — the prompt is the prototype.",
-      "Only formalize into a GPT after you have repeated the same workflow at least three times.",
-      "Keep the GPT's purpose narrow. One job, done well.",
-    ],
-    advancedMoves: [
-      "Separate the GPT into four layers: role definition, instructions, knowledge files, and tool permissions.",
-      "Write explicit failure rules: what the GPT should refuse or flag instead of attempting.",
-      "Test the GPT with adversarial inputs before sharing it with others.",
-    ],
-    commonMistakes: [
-      "Building a GPT for something you have only done once — the workflow is not yet stable.",
-      "Making the GPT too broad — a 'do everything' GPT performs poorly compared to a focused one.",
-      "Not uploading knowledge files — the GPT relies entirely on the base model instead of your domain context.",
-    ],
-    promptExamples: [
-      { prompt: "Turn our last successful workflow into a reusable GPT blueprint.", why: "Derives GPT design from proven experience." },
-      { prompt: "Write the instructions, input schema, output schema, and failure rules for this GPT.", why: "Produces a complete, testable GPT specification." },
-      { prompt: "What edge cases should this GPT handle gracefully?", why: "Proactive resilience testing." },
-    ],
-    beforeAfter: {
-      before: "I want a GPT that handles all my email communications.",
-      after: "I want a GPT that drafts reply emails to university professors. Tone: respectful and direct. Length: under 150 words. It should ask me for context before drafting. It should refuse to send anything without my confirmation. Upload: my email style guide.",
-      improvement: "Narrows scope, sets tone, adds safety rules, and includes reference material."
-    },
-    visual: "gpt",
-  },
-  {
-    id: "canvas",
-    level: "power",
-    number: "13",
-    title: "Canvas for writing and code revision",
-    icon: PanelsTopLeft,
-    color: "#334155",
-    summary: "Canvas provides a visible working surface alongside the chat. It is better than linear conversation when the work is document-like or file-like and requires iterative, surgical edits rather than full rewrites.",
-    whyItMatters: "Long artifacts suffer in linear chat. You lose track of the current version, diffs are hard to see, and each edit risks unintended changes elsewhere. Canvas makes the document the center of gravity.",
-    beginnerMoves: [
-      "Use canvas when you need to see and refine a long artifact — reports, essays, code files.",
-      "Keep one canvas file focused on one purpose.",
-      "Ask for targeted edits ('Fix paragraph 3') rather than vague rewrites ('Make it better').",
-    ],
-    advancedMoves: [
-      "Use chat to discuss strategy and canvas to execute the resulting changes.",
-      "For code, request architecture-level changes first, then narrow diffs second.",
-      "Use canvas version history to compare before-and-after states of your document.",
-    ],
-    commonMistakes: [
-      "Continuing to use chat for long documents when canvas would be more efficient.",
-      "Requesting full rewrites in canvas when only a paragraph needs to change.",
-      "Not taking advantage of code canvas for debugging — it supports targeted inline patches.",
-    ],
-    promptExamples: [
-      { prompt: "Open this as a writing canvas and rewrite only the introduction.", why: "Uses canvas for scoped editing." },
-      { prompt: "Find logic errors in this code component and patch only those lines.", why: "Targeted code fix via canvas." },
-      { prompt: "Reorganize this document: move section 3 before section 2 and merge sections 4 and 5.", why: "Structural reorganization where canvas excels." },
-    ],
-    beforeAfter: {
-      before: "Rewrite my essay. [pastes 2000 words in chat]",
-      after: "Open this essay in a writing canvas. Do not change anything yet. First, annotate which sections are strong and which need revision. Then I will tell you which edits to make.",
-      improvement: "Uses canvas for inspection before modification, preserving control."
-    },
-    visual: "canvas",
-  },
-  {
-    id: "tasks-apps-agent",
-    level: "expert",
-    number: "14",
-    title: "Tasks, apps, pulse, and agent",
-    icon: Workflow,
-    color: "#16a34a",
-    summary: "This is the operational layer. Tasks execute later and notify you. Apps bring external data into chat. Pulse runs asynchronous research. Agent performs autonomous multi-step work across browsers, files, and tools. The highest leverage now comes from deciding when ChatGPT should answer, remember, or execute.",
-    whyItMatters: "Most users interact with ChatGPT only in real-time question-and-answer mode. The operational layer turns it into a system that works on your behalf when you are not watching.",
-    beginnerMoves: [
-      "Use Tasks for reminders, daily briefings, and recurring summaries.",
-      "Use Apps when the information you need lives in Google Drive, Slack, email, or another connected service.",
-      "Use Agent for any multi-step online workflow that would take you 15+ minutes of manual clicking.",
-    ],
-    advancedMoves: [
-      "Write agent prompts like job briefs: objective, sources to use, constraints, stop points, and expected deliverable.",
-      "Use Pulse to get proactive updates on topics you care about without manually checking.",
-      "Combine Tasks with Projects: set a weekly task that produces a summary from a specific project context.",
-    ],
-    commonMistakes: [
-      "Not knowing Agent exists — it is the most powerful feature most users have never tried.",
-      "Giving Agent vague instructions — it needs the same clarity as any good prompt, plus explicit stopping rules.",
-      "Using Tasks only for reminders when they can produce complex recurring outputs.",
-    ],
-    promptExamples: [
-      { prompt: "Set a recurring daily task: every morning at 8 AM, brief me on [topic] with the top three developments.", why: "Turns ChatGPT into a proactive briefing system." },
-      { prompt: "Use connected sources and public web sources to build a documented competitive analysis.", why: "Combines internal and external data." },
-      { prompt: "Use Agent to complete this workflow: [steps]. Pause before the final submission and show me what you have.", why: "Autonomous execution with a human checkpoint before completion." },
-    ],
-    beforeAfter: {
-      before: "Can you check these five websites and compare their pricing?",
-      after: "Use Agent to visit these five competitor websites, extract their current pricing tiers, and compile the results into a comparison table. Pause if any site requires login. Flag pricing that seems outdated.",
-      improvement: "Delegates to Agent with clear scope, error handling, and quality rules."
-    },
-    visual: "agent",
-  },
-  {
-    id: "model-choice",
-    level: "expert",
-    number: "15",
-    title: "Model choice and plan-sensitive behavior",
-    icon: Compass,
-    color: "#65a30d",
-    summary: "ChatGPT offers multiple model modes that trade off speed, reasoning depth, and tool support. Faster modes are better for drafting and transformation. Deeper reasoning modes are better for complex analysis, logic, and synthesis. Not every task needs the most powerful setting.",
-    whyItMatters: "Users who always default to the most advanced mode waste time on simple tasks. Users who never escalate miss out on deeper reasoning when it matters. The skill is in matching mode to task.",
-    beginnerMoves: [
-      "Use Auto (the default) for most everyday work — it selects a sensible balance.",
-      "Escalate to a reasoning-heavy mode only when the task involves complex logic, math, or multi-step synthesis.",
-      "Do not assume the strongest mode is always the best — speed has value too.",
-    ],
-    advancedMoves: [
-      "Use faster modes for drafting and brainstorming, then switch to a deeper mode for critical review.",
-      "Watch for tool availability: some premium reasoning modes may have limited web search or file access.",
-      "For multi-turn work, start in a lighter mode and escalate mid-conversation if the task demands it.",
-    ],
-    commonMistakes: [
-      "Always using the most powerful mode, even for simple tasks like formatting or rewording.",
-      "Blaming the model when the real issue was picking the wrong mode for the job.",
-      "Not checking whether your plan tier has access to the modes you need for a given task.",
-    ],
-    promptExamples: [
-      { prompt: "Give me the quick answer first, then a deeper analysis in a second pass.", why: "Uses both speed and depth in sequence." },
-      { prompt: "This is a complex logic problem. Use extended thinking to work through it step by step.", why: "Explicitly invokes deeper reasoning when needed." },
-      { prompt: "Would this task benefit more from fast drafting or careful reasoning?", why: "Asks the model to help you pick the right mode." },
-    ],
-    beforeAfter: {
-      before: "I always use the most advanced model for everything.",
-      after: "Use Auto for quick tasks. Escalate to a reasoning mode for logic-heavy problems, code debugging, or nuanced analysis. Use a fast mode when you need volume: brainstorming, drafting multiple options, or iterating quickly.",
-      improvement: "Matches model power to task type, optimizing both speed and quality."
-    },
-    visual: "models",
-  },
-  {
-    id: "privacy-risk",
-    level: "expert",
-    number: "16",
-    title: "Privacy, data controls, and risk discipline",
-    icon: Shield,
-    color: "#e11d48",
-    summary: "The more capable ChatGPT becomes, the more important boundaries become. Strong users know not only how to use the tool, but when not to. Sensitive data requires upload discipline, and high-stakes outputs still require expert human review.",
-    whyItMatters: "Capability without boundaries leads to casual data exposure or over-reliance on AI outputs for decisions that require human accountability. Risk discipline is what separates power users from reckless users.",
-    beginnerMoves: [
-      "Do not upload sensitive content casually — client data, financial records, personal identifiers.",
-      "Scrub identifiable information when possible before uploading.",
-      "Use Temporary Chat for anything where you want the cleanest privacy posture available.",
-    ],
-    advancedMoves: [
-      "Create your own traffic-light upload policy: red (never upload), yellow (upload with redaction), green (safe to upload).",
-      "Require expert human review before acting on any high-stakes AI output — legal, medical, financial.",
-      "Audit what data you have shared with ChatGPT periodically and clean up anything unnecessary.",
-    ],
-    commonMistakes: [
-      "Uploading full client databases when a redacted sample would suffice.",
-      "Assuming Temporary Chat means nothing is processed — it still reaches the model, it just is not stored.",
-      "Using AI outputs as final decisions in regulated domains without professional review.",
-    ],
-    promptExamples: [
-      { prompt: "Identify which parts of this task are high-risk and should be verified by a human expert.", why: "Makes the model flag its own limitations proactively." },
-      { prompt: "Help me redact this document before I upload the full version.", why: "Uses AI to prepare for safe AI use." },
-      { prompt: "What data in this file is personally identifiable? Help me remove it.", why: "PII detection before upload." },
-    ],
-    beforeAfter: {
-      before: "Here's my full client list — analyze the trends.",
-      after: "I have a client dataset with 500 rows. Before uploading, I will remove names, email addresses, and phone numbers. I will replace company names with anonymized labels. Then analyze the revenue trends by industry segment.",
-      improvement: "Redacts identifiers before upload, preserving analytical value while protecting privacy."
-    },
-    visual: "privacy",
-  },
+  { id:"mental-model", level:"foundation", number:"01", title:"Start with the right mental model", icon:Brain, color:"#65a30d",
+    summary:"Treat ChatGPT as a reasoning partner, not an oracle. Its first response is a useful draft, not final truth. Treat every output as provisional until inspected.",
+    whyItMatters:"Most disappointment stems from mismatched expectations. Expect a skilled first draft, not certainty.",
+    beginnerMoves:["Assume the first answer is a draft. Read critically.","Ask what assumptions were made.","Use ChatGPT to accelerate judgment, not replace it."],
+    advancedMoves:["Ask for the strongest counter-argument.","Separate exploration, recommendation, and risk review into passes.","Use it as a second opinion on consequential decisions."],
+    commonMistakes:["Trusting numerical claims without verification.","Assuming silence means confidence.","Copying outputs verbatim."],
+    promptExamples:[{prompt:"What assumptions did you make?",why:"Surfaces hidden reasoning."},{prompt:"What would a skeptical expert challenge?",why:"Adversarial self-review."},{prompt:"Strongest argument against your recommendation.",why:"Prevents confirmation bias."},{prompt:"Rate confidence in each claim 1-5.",why:"Separates facts from speculation."}],
+    beforeAfter:{before:"Write me a business plan for a coffee shop.",after:"Draft a one-page plan for a specialty coffee shop in downtown Boston. Target: grad students and remote workers. Flag anything estimated rather than sourced.",improvement:"Adds context, audience, location, and a verification rule."},
+    visual:"mental" },
+  { id:"workspace", level:"foundation", number:"02", title:"Learn the workspace before obsessing over prompts", icon:Laptop, color:"#059669",
+    summary:"Modern ChatGPT is a layered workspace. Different jobs belong in different layers. A decent prompt in the correct layer outperforms a clever prompt in the wrong one.",
+    whyItMatters:"Choosing the right workspace is the highest-leverage decision before typing a word.",
+    beginnerMoves:["Normal chat for quick one-offs.","Project for anything you will revisit.","Temporary Chat for a blank slate."],
+    advancedMoves:["One project per course, client, or initiative.","Projects as long-term knowledge hubs.","Canvas for iterative editing; chat for strategy."],
+    commonMistakes:["New chat every time instead of returning to a project.","Chat for long documents instead of canvas.","Ignoring tasks and agent entirely."],
+    promptExamples:[{prompt:"Should this be a chat, project, or GPT?",why:"Model picks the workspace."},{prompt:"Ideal project structure for my semester.",why:"Plans architecture first."},{prompt:"What files and instructions should I add?",why:"Optimizes project context."}],
+    beforeAfter:{before:"I keep starting new chats and losing context.",after:"Create a Project. Upload references. Set instructions. Return to the same project.",improvement:"Ephemeral chats become a persistent workspace."},
+    visual:"layers" },
+  { id:"prompting", level:"foundation", number:"03", title:"Prompting: clarity beats cleverness", icon:PenTool, color:"#0284c7",
+    summary:"Good prompts are operating briefs. Fancy wording is optional; clear constraints are not. The model cannot see the standards in your head unless you write them down.",
+    whyItMatters:"Vague prompts produce generic outputs. Most frustration traces to under-specified inputs.",
+    beginnerMoves:["Name audience and use case explicitly.","State what success looks like.","Specify format, tone, length, and what to avoid."],
+    advancedMoves:["Outline first, approve, then full draft.","Separate facts from interpretation.","Provide a rubric for self-grading."],
+    commonMistakes:["Three-word prompts expecting tailored results.","Too many constraints at once.","'Can you...?' instead of direct instructions."],
+    promptExamples:[{prompt:"Goal: ___. Context: ___. Constraints: ___. Produce: ___.",why:"Universal skeleton."},{prompt:"Outline first. Do not draft yet.",why:"Prevents wrong-structure rewrites."},{prompt:"Before writing, tell me what you need to know.",why:"Model asks clarifying questions."},{prompt:"Write as [role] explaining to [audience].",why:"Anchors tone and depth."}],
+    beforeAfter:{before:"Write a cover letter.",after:"Cover letter for Strategy Analyst at McKinsey. Grad student, International Management, SOP and CRM experience. Confident, not arrogant. 350 words. No 'I am passionate about.'",improvement:"Role, background, tone, length, negative constraint."},
+    visual:"prompt" },
+  { id:"revision", level:"core", number:"04", title:"Revision workflows beat one-shot perfection", icon:RefreshCcw, color:"#7c3aed",
+    summary:"Strong use is iterative: frame, draft, critique, revise, package. Most users restart when they should refine.",
+    whyItMatters:"One-shot caps quality at the first try. Revision consistently produces better results.",
+    beginnerMoves:["After the draft: 'What is weak or missing?'","Revise with a narrower target.","Do not restart unless the direction is fundamentally wrong."],
+    advancedMoves:["Fixed passes: structure, accuracy, tone, compression, packaging.","Self-critique before rewrite.","Specify compression ratios."],
+    commonMistakes:["Manual rewriting instead of model self-diagnosis.","Vague feedback like 'make it better.'","Too many unfocused passes."],
+    promptExamples:[{prompt:"Why did your answer not meet the goal?",why:"Self-diagnosis before revision."},{prompt:"Revise for sharper logic. Keep structure.",why:"Constrains scope."},{prompt:"Compress by 35% without losing essentials.",why:"Forces prioritization."},{prompt:"Grade against these criteria. Where below 4/5?",why:"Structured self-evaluation."}],
+    beforeAfter:{before:"That's not right. Try again.",after:"Section 2 argument is circular. Rewrite with a data point from the uploaded report. Keep the rest.",improvement:"What is wrong, what to fix, what to preserve."},
+    visual:"workflow" },
+  { id:"writing", level:"core", number:"05", title:"Writing, rewriting, and transformation", icon:FileText, color:"#57534e",
+    summary:"ChatGPT excels at transformation: rewriting for different audiences, changing tone, summarizing, reorganizing. Often better at improving existing text than drafting from nothing.",
+    whyItMatters:"Most professional writing is transformation. This is where AI has the highest return.",
+    beginnerMoves:["Paste original. State what stays and what changes.","Specify audience, channel, tone.","Multiple versions when tone is uncertain."],
+    advancedMoves:["Contrastive versions: formal, concise, persuasive.","Sentence-level diagnosis.","Style transfer with preserved facts."],
+    commonMistakes:["Drafting from scratch when notes exist.","Accepting first tone without alternatives.","Not specifying what to preserve."],
+    promptExamples:[{prompt:"Rewrite for professor email: respectful, direct, no fluff.",why:"Precise transformation."},{prompt:"Three versions: formal, concise, persuasive.",why:"Contrastive selection."},{prompt:"Which sentences feel generic and why?",why:"Line-level diagnosis."},{prompt:"Keep facts and structure. Only change tone.",why:"Scoped transformation."}],
+    beforeAfter:{before:"Make this email better.",after:"Rewrite for program director. Respectful, direct. Remove jargon. Under 150 words. Keep action items.",improvement:"Audience, tone, anti-patterns, length, preservation."},
+    visual:"writing" },
+  { id:"files-data", level:"core", number:"06", title:"Files, PDFs, spreadsheets, and data", icon:Table2, color:"#0891b2",
+    summary:"ChatGPT inspects files, summarizes documents, executes code on data, produces charts. Key: describe first, analyze second, conclude third.",
+    whyItMatters:"Inspecting data before interpreting it catches the most common errors.",
+    beginnerMoves:["Ask what the file contains before what it means.","Request a field audit first.","For PDFs: separate structure, argument, evidence."],
+    advancedMoves:["Require an audit trail of assumptions.","Restate extracted tables before concluding.","Code execution for large datasets."],
+    commonMistakes:["Immediately asking for 'key insights.'","Trusting chart labels without verifying.","Assuming perfect PDF parsing."],
+    promptExamples:[{prompt:"Describe: fields, date range, missing values, analysis options.",why:"Audit before analysis."},{prompt:"Extract core argument before critiquing.",why:"Comprehension before judgment."},{prompt:"List every assumption used for this chart.",why:"Audit trail."},{prompt:"Write Python to clean this, run it, show result.",why:"Reproducible analysis."}],
+    beforeAfter:{before:"Key insights from this spreadsheet?",after:"Audit: columns, types, date range, missing values. Propose three analyses ranked by usefulness. Do not run until I approve.",improvement:"Inspection, proposals, approval gate."},
+    visual:"data" },
+  { id:"search-research", level:"core", number:"07", title:"Search, deep research, and citations", icon:Search, color:"#4f46e5",
+    summary:"Search for current answers with sources. Deep Research for multi-step reports. Anything current, regulated, or fast-changing should never rely on static memory.",
+    whyItMatters:"Without search, ChatGPT answers from a frozen snapshot.",
+    beginnerMoves:["Search for anything that may have changed.","Verify cited sources support specific claims.","Prefer primary sources for high stakes."],
+    advancedMoves:["'Separate confirmed facts from your inference.'","Specify source types, region, date horizon.","Deep Research with defined scope."],
+    commonMistakes:["Trusting model knowledge for current events.","Accepting 'sourced' claims without clicking through.","Deep Research for quick factual questions."],
+    promptExamples:[{prompt:"Search. Primary sources only.",why:"Live retrieval with quality constraints."},{prompt:"Separate facts from inference. Label each.",why:"Transparent epistemic status."},{prompt:"What could become outdated in six months?",why:"Time-sensitivity flagging."},{prompt:"Deep Research: [topic]. Scope: [region, dates].",why:"Defined job brief."}],
+    beforeAfter:{before:"Latest on AI regulation?",after:"Search: AI regulation, EU and US, past 30 days. Primary sources. Separate enacted from proposed.",improvement:"Scope, time range, quality, categorization."},
+    visual:"research" },
+  { id:"multimodal", level:"core", number:"08", title:"Voice, images, and multimodal workflows", icon:ImagePlus, color:"#c026d3",
+    summary:"Voice, image understanding, generation, and editing are standard. Specificity is key: vague visual requests produce generic results.",
+    whyItMatters:"Multimodal turns ChatGPT into visual analysis tool, image studio, and hands-free brainstorming partner.",
+    beginnerMoves:["Tell exactly what to do with an uploaded image.","Voice when speed matters more than polish.","Image gen: specify subject, framing, mood, style."],
+    advancedMoves:["Chain modes: analyze, explain, then create notes.","Image critique for design review.","Scoped editing: select region, describe change."],
+    commonMistakes:["Uploading images with no instructions.","Expecting photorealism from vague descriptions.","Forgetting voice carries the same context as text."],
+    promptExamples:[{prompt:"Extract menu items, organize by category.",why:"Specific extraction."},{prompt:"Explain this chart to a non-technical exec in 120 words.",why:"Analysis with constraints."},{prompt:"Generate: vertical 9:16, cinematic, golden-hour.",why:"Photography-style spec."},{prompt:"Replace background with white studio. Keep subject.",why:"Scoped editing."}],
+    beforeAfter:{before:"Make me a cool image.",after:"16:9: modern Tokyo coffee shop at dusk. Architectural photography, shallow depth of field. Warm. Wooden counter, espresso machine, city lights. No people.",improvement:"Ratio, subject, style, mood, elements, exclusions."},
+    visual:"multimodal" },
+  { id:"study-collab", level:"power", number:"09", title:"Study, record, groups, links, and skills", icon:LayoutGrid, color:"#0d9488",
+    summary:"Features for learning, capturing spoken content, collaborating, sharing, and formalizing workflows.",
+    whyItMatters:"Learning differs from getting answers. Collaboration differs from solo prompting.",
+    beginnerMoves:["Study Mode to learn, not just get answers.","Record for meetings and lectures.","Shared Links and Group Chats for clean collaboration."],
+    advancedMoves:["Recorded summaries as project source files.","Skills for repeated jobs.","Group Chats + Projects for shared context."],
+    commonMistakes:["Normal chat for studying defeats learning.","Forgetting Record exists.","Screenshots instead of Shared Links."],
+    promptExamples:[{prompt:"Quiz me instead of telling answers.",why:"Pedagogical approach."},{prompt:"Recording to action items and follow-up draft.",why:"Multi-output transformation."},{prompt:"Convert this workflow into a Skill.",why:"Formalizes a process."}],
+    beforeAfter:{before:"Explain photosynthesis.",after:"Studying for biology exam. Do not explain. Ask questions to check understanding, basic to advanced. Correct with brief explanations.",improvement:"Answer-delivery becomes guided learning."},
+    visual:"collab" },
+  { id:"personalization", level:"power", number:"10", title:"Memory, instructions, personality, temp chat", icon:Database, color:"#d97706",
+    summary:"Memory stores context. Instructions set rules. Personality adjusts style. Temporary Chat is a clean room. Not interchangeable.",
+    whyItMatters:"Misconfigured personalization degrades results more than it helps.",
+    beginnerMoves:["Memory: broad, stable preferences.","Instructions: global writing rules.","Temporary Chat: zero carryover."],
+    advancedMoves:["Personality is texture, not a replacement for instructions.","Project-specific instructions over global settings.","Periodic memory audits."],
+    commonMistakes:["Everything in memory instead of Instructions.","Stale memory accumulation.","Personality to change capabilities, not style."],
+    promptExamples:[{prompt:"What do you remember about me?",why:"Audits memory."},{prompt:"Forget the preference about formal tone.",why:"Targeted cleanup."},{prompt:"Blank-slate. No stored preferences.",why:"Clean-room mode."}],
+    beforeAfter:{before:"Preferences in memory but inconsistent results.",after:"Behavior rules in Instructions. Facts in Memory. Domain rules in project instructions.",improvement:"Correct layer separation."},
+    visual:"memory" },
+  { id:"projects", level:"power", number:"11", title:"Projects as your operating system", icon:FolderOpen, color:"#16a34a",
+    summary:"Projects make ChatGPT a context-aware workbench. A well-configured project outperforms any single-chat interaction.",
+    whyItMatters:"For multi-session work, projects are the highest-leverage organizational tool.",
+    beginnerMoves:["One project per workstream. Name clearly.","Upload only relevant files.","Write project instructions."],
+    advancedMoves:["Add conversation summaries as source files.","Weekly work in one project, not fresh chats.","Meta-project for personal productivity."],
+    commonMistakes:["Too many narrow projects.","Uploading everything: bloated context.","No project instructions."],
+    promptExamples:[{prompt:"Ideal project structure for my semester.",why:"Plans workspace first."},{prompt:"Draft a memo consistent with prior work.",why:"Leverages accumulated context."},{prompt:"Summarize key decisions from last five conversations.",why:"Living summary."}],
+    beforeAfter:{before:"Files everywhere, losing track.",after:"One project per domain. References. Instructions. Return. Periodically summarize.",improvement:"Scattered conversations become structured."},
+    visual:"project" },
+  { id:"gpts", level:"power", number:"12", title:"When to build a GPT (and when not to)", icon:Bot, color:"#44403c",
+    summary:"Useful when a workflow repeats, has stable instructions, and benefits from reuse. But most people build too early.",
+    whyItMatters:"Premature GPT bakes in an immature workflow. Well-timed GPT turns a proven process into one-click tool.",
+    beginnerMoves:["Save prompts first: prompt is the prototype.","Formalize after three repetitions.","Narrow purpose. One job."],
+    advancedMoves:["Four layers: role, instructions, knowledge, tools.","Explicit failure rules.","Adversarial testing."],
+    commonMistakes:["GPT for something done once.","Too broad: 'do everything.'","No knowledge files."],
+    promptExamples:[{prompt:"Turn our workflow into a GPT blueprint.",why:"Derives from experience."},{prompt:"Instructions, input/output schema, failure rules.",why:"Complete specification."},{prompt:"Edge cases this GPT should handle?",why:"Resilience testing."}],
+    beforeAfter:{before:"GPT for all my email.",after:"GPT for replying to professors. Respectful, direct. Under 150 words. Asks context first. Refuses without confirmation. Upload: style guide.",improvement:"Narrow scope, safety rules, references."},
+    visual:"gpt" },
+  { id:"canvas", level:"power", number:"13", title:"Canvas for writing and code revision", icon:PanelsTopLeft, color:"#334155",
+    summary:"Visible working surface alongside chat. Better than linear conversation for document-like work requiring surgical edits.",
+    whyItMatters:"Long artifacts suffer in chat. Canvas makes the document the center of gravity.",
+    beginnerMoves:["Canvas for long artifacts.","One file per purpose.","Targeted edits, not vague rewrites."],
+    advancedMoves:["Chat for strategy, canvas for execution.","Architecture first, narrow diffs second.","Version history for comparison."],
+    commonMistakes:["Chat for long documents.","Full rewrites when a paragraph needs fixing.","Not using code canvas for debugging."],
+    promptExamples:[{prompt:"Writing canvas. Rewrite only introduction.",why:"Scoped editing."},{prompt:"Find logic errors. Patch only those lines.",why:"Targeted code fix."},{prompt:"Move section 3 before 2, merge 4 and 5.",why:"Structural reorganization."}],
+    beforeAfter:{before:"Rewrite my essay. [2000 words in chat]",after:"Open in canvas. Do not change yet. Annotate strong vs weak sections. Then I direct edits.",improvement:"Inspection before modification."},
+    visual:"canvas" },
+  { id:"tasks-apps-agent", level:"expert", number:"14", title:"Tasks, apps, pulse, and agent", icon:Workflow, color:"#16a34a",
+    summary:"Operational layer. Tasks run later. Apps bring data in. Pulse researches async. Agent does autonomous multi-step work.",
+    whyItMatters:"Most users only do real-time Q&A. This layer turns ChatGPT into a system that works for you.",
+    beginnerMoves:["Tasks: reminders, briefings, recurring summaries.","Apps: when info lives in Drive, Slack, email.","Agent: multi-step workflows (15+ min manual)."],
+    advancedMoves:["Agent prompts as job briefs with stop points.","Pulse for proactive topic updates.","Tasks + Projects for weekly auto-summaries."],
+    commonMistakes:["Not knowing Agent exists.","Vague agent instructions without stopping rules.","Tasks only for reminders."],
+    promptExamples:[{prompt:"Daily task: 8 AM brief on [topic], top 3.",why:"Proactive briefing."},{prompt:"Connected + public sources for competitive analysis.",why:"Internal + external data."},{prompt:"Agent: workflow steps. Pause before submission.",why:"Autonomous with checkpoint."}],
+    beforeAfter:{before:"Check five sites and compare pricing.",after:"Agent: visit five competitors, extract pricing, compile table. Pause if login needed. Flag outdated pricing.",improvement:"Delegated with scope and error handling."},
+    visual:"agent" },
+  { id:"model-choice", level:"expert", number:"15", title:"Model choice and mode selection", icon:Compass, color:"#65a30d",
+    summary:"Different modes trade speed, reasoning depth, and tool support. Match model power to task.",
+    whyItMatters:"Always using the strongest mode wastes time. Never escalating misses depth.",
+    beginnerMoves:["Auto for everyday work.","Escalate for complex logic or synthesis.","Strongest is not always best."],
+    advancedMoves:["Fast for drafting, deep for critical review.","Watch tool limitations in reasoning modes.","Start light, escalate mid-conversation."],
+    commonMistakes:["Most powerful mode for everything.","Blaming model instead of mode.","Not checking plan tier access."],
+    promptExamples:[{prompt:"Quick answer first, deeper second pass.",why:"Speed then depth."},{prompt:"Complex logic. Extended thinking, step by step.",why:"Explicit deep reasoning."},{prompt:"Fast drafting or careful reasoning for this?",why:"Model helps pick mode."}],
+    beforeAfter:{before:"Always use most advanced model.",after:"Auto for quick tasks. Reasoning for logic. Fast for brainstorming.",improvement:"Power matched to task type."},
+    visual:"models" },
+  { id:"privacy-risk", level:"expert", number:"16", title:"Privacy, data controls, and risk", icon:Shield, color:"#e11d48",
+    summary:"More capability demands more boundaries. Sensitive data needs upload discipline. High-stakes outputs need human review.",
+    whyItMatters:"Capability without boundaries leads to data exposure or over-reliance.",
+    beginnerMoves:["Do not upload sensitive content casually.","Scrub identifiers before uploading.","Temporary Chat for cleanest privacy."],
+    advancedMoves:["Traffic-light upload policy: red, yellow, green.","Expert review before high-stakes action.","Periodic data audit."],
+    commonMistakes:["Full databases when a sample suffices.","Assuming Temporary Chat means nothing processed.","AI outputs as final decisions in regulated domains."],
+    promptExamples:[{prompt:"Which parts need human expert verification?",why:"Flags limitations."},{prompt:"Help redact before full upload.",why:"Safe preparation."},{prompt:"What here is personally identifiable? Remove it.",why:"PII detection."}],
+    beforeAfter:{before:"Full client list, analyze trends.",after:"Remove names, emails, phones. Anonymize companies. Then analyze revenue by segment.",improvement:"Redacts identifiers, preserves analytical value."},
+    visual:"privacy" },
 ];
 
-/* ─────────────────────────────────────────────
-   SVG VISUAL COMPONENTS
-   ───────────────────────────────────────────── */
 function SectionVisual({ type }) {
   const s = "fill-none stroke-current";
-  const common = `h-44 w-full text-[var(--green-deep)] opacity-80`;
-
-  const visuals = {
-    mental: (
-      <svg viewBox="0 0 360 200" className={common}>
-        <rect x="24" y="20" width="128" height="54" rx="14" className={s} strokeWidth="2.2" />
-        <rect x="208" y="20" width="128" height="54" rx="14" className={s} strokeWidth="2.2" />
-        <rect x="116" y="130" width="128" height="54" rx="14" className={s} strokeWidth="2.2" />
-        <path d="M152 47h56" className={s} strokeWidth="2" markerEnd="url(#arr)" />
-        <path d="M88 74l60 56" className={s} strokeWidth="2" />
-        <path d="M272 74l-60 56" className={s} strokeWidth="2" />
-        <text x="88" y="52" textAnchor="middle" className="fill-current text-[13px] font-semibold">Your goal</text>
-        <text x="272" y="52" textAnchor="middle" className="fill-current text-[13px] font-semibold">AI draft</text>
-        <text x="180" y="162" textAnchor="middle" className="fill-current text-[13px] font-semibold">Your judgment</text>
-        <text x="180" y="104" textAnchor="middle" className="fill-current text-[10px] opacity-60">inspect → decide → act</text>
-      </svg>
-    ),
-    layers: (
-      <svg viewBox="0 0 360 200" className={common}>
-        {[
-          [36, 16, 288, 28, "Normal Chat"],
-          [50, 50, 260, 28, "Projects + Canvas"],
-          [64, 84, 232, 28, "Memory + Instructions"],
-          [78, 118, 204, 28, "GPTs + Study + Skills"],
-          [92, 152, 176, 28, "Tasks + Apps + Agent"],
-        ].map(([x, y, w, h, label]) => (
-          <g key={label}>
-            <rect x={x} y={y} width={w} height={h} rx="12" className={s} strokeWidth="2.2" />
-            <text x={180} y={y + 18} textAnchor="middle" className="fill-current text-[11px] font-semibold">{label}</text>
-          </g>
-        ))}
-        <text x="340" y="30" textAnchor="end" className="fill-current text-[9px] opacity-50">simple</text>
-        <text x="340" y="170" textAnchor="end" className="fill-current text-[9px] opacity-50">powerful</text>
-      </svg>
-    ),
-    prompt: (
-      <svg viewBox="0 0 360 200" className={common}>
-        {[
-          [20, 16, "Goal", "What do you want?"],
-          [126, 16, "Context", "Background info"],
-          [232, 16, "Rules", "Constraints"],
-          [20, 108, "Format", "How to deliver"],
-          [126, 108, "Quality", "Standard to hit"],
-          [232, 108, "Verify", "Check this claim"],
-        ].map(([x, y, label, sub]) => (
-          <g key={label}>
-            <rect x={x} y={y} width="108" height="60" rx="12" className={s} strokeWidth="2.2" />
-            <text x={Number(x) + 54} y={Number(y) + 26} textAnchor="middle" className="fill-current text-[12px] font-semibold">{label}</text>
-            <text x={Number(x) + 54} y={Number(y) + 42} textAnchor="middle" className="fill-current text-[9px] opacity-60">{sub}</text>
-          </g>
-        ))}
-      </svg>
-    ),
-    workflow: (
-      <svg viewBox="0 0 360 180" className={common}>
-        {[
-          [30, "Frame"],
-          [100, "Draft"],
-          [170, "Critique"],
-          [240, "Revise"],
-          [310, "Ship"],
-        ].map(([x, label], i) => (
-          <g key={label}>
-            <circle cx={x} cy="90" r="26" className={s} strokeWidth="2.2" />
-            <text x={x} y="94" textAnchor="middle" className="fill-current text-[11px] font-semibold">{label}</text>
-            {i < 4 && <path d={`M${Number(x) + 26} 90h18`} className={s} strokeWidth="2" />}
-          </g>
-        ))}
-        <text x="180" y="148" textAnchor="middle" className="fill-current text-[10px] opacity-50">each pass adds specificity</text>
-      </svg>
-    ),
-    writing: (
-      <svg viewBox="0 0 360 180" className={common}>
-        <rect x="20" y="24" width="100" height="120" rx="14" className={s} strokeWidth="2.2" />
-        <rect x="140" y="24" width="80" height="120" rx="14" className={s} strokeWidth="2.2" />
-        <rect x="240" y="24" width="100" height="120" rx="14" className={s} strokeWidth="2.2" />
-        <text x="70" y="48" textAnchor="middle" className="fill-current text-[12px] font-semibold">Source</text>
-        <text x="180" y="48" textAnchor="middle" className="fill-current text-[12px] font-semibold">Transform</text>
-        <text x="290" y="48" textAnchor="middle" className="fill-current text-[12px] font-semibold">Output</text>
-        <path d="M120 84h20M220 84h20" className={s} strokeWidth="2" />
-        <text x="70" y="72" textAnchor="middle" className="fill-current text-[9px] opacity-60">your draft</text>
-        <text x="180" y="72" textAnchor="middle" className="fill-current text-[9px] opacity-60">tone, length</text>
-        <text x="290" y="72" textAnchor="middle" className="fill-current text-[9px] opacity-60">polished</text>
-      </svg>
-    ),
-    data: (
-      <svg viewBox="0 0 360 180" className={common}>
-        <rect x="20" y="20" width="130" height="120" rx="14" className={s} strokeWidth="2.2" />
-        <path d="M20 50h130M52 20v120M84 20v120M116 20v120M20 80h130M20 110h130" className={s} strokeWidth="1.5" />
-        <rect x="196" y="30" width="28" height="88" rx="8" className={s} strokeWidth="2.2" />
-        <rect x="236" y="58" width="28" height="60" rx="8" className={s} strokeWidth="2.2" />
-        <rect x="276" y="42" width="28" height="76" rx="8" className={s} strokeWidth="2.2" />
-        <rect x="316" y="66" width="28" height="52" rx="8" className={s} strokeWidth="2.2" />
-        <path d="M190 130h160" className={s} strokeWidth="2" />
-        <text x="85" y="160" textAnchor="middle" className="fill-current text-[10px] opacity-60">1. Inspect</text>
-        <text x="270" y="160" textAnchor="middle" className="fill-current text-[10px] opacity-60">2. Conclude</text>
-      </svg>
-    ),
-    research: (
-      <svg viewBox="0 0 360 180" className={common}>
-        <circle cx="76" cy="76" r="38" className={s} strokeWidth="2.2" />
-        <path d="M104 104l28 28" className={s} strokeWidth="2.2" />
-        <rect x="180" y="18" width="150" height="34" rx="12" className={s} strokeWidth="2.2" />
-        <rect x="180" y="66" width="150" height="34" rx="12" className={s} strokeWidth="2.2" />
-        <rect x="180" y="114" width="150" height="34" rx="12" className={s} strokeWidth="2.2" />
-        <text x="255" y="40" textAnchor="middle" className="fill-current text-[11px] font-semibold">Primary source</text>
-        <text x="255" y="88" textAnchor="middle" className="fill-current text-[11px] font-semibold">Secondary source</text>
-        <text x="255" y="136" textAnchor="middle" className="fill-current text-[11px] font-semibold">Model inference</text>
-        <circle cx="342" cy="35" r="5" className="fill-[var(--green-mid)] stroke-none" />
-        <circle cx="342" cy="83" r="5" className="fill-[var(--amber-warm)] stroke-none" />
-        <circle cx="342" cy="131" r="5" className="fill-[var(--rose-accent)] stroke-none opacity-60" />
-      </svg>
-    ),
-    multimodal: (
-      <svg viewBox="0 0 360 180" className={common}>
-        {[
-          [30, "Text"],
-          [114, "Image"],
-          [198, "Voice"],
-          [282, "Edit"],
-        ].map(([x, label]) => (
-          <g key={label}>
-            <rect x={x} y="36" width="66" height="66" rx="16" className={s} strokeWidth="2.2" />
-            <text x={Number(x) + 33} y="74" textAnchor="middle" className="fill-current text-[11px] font-semibold">{label}</text>
-          </g>
-        ))}
-        <path d="M96 69h18M180 69h18M264 69h18" className={s} strokeWidth="2" />
-        <text x="180" y="136" textAnchor="middle" className="fill-current text-[10px] opacity-50">chain modes for richer workflows</text>
-      </svg>
-    ),
-    collab: (
-      <svg viewBox="0 0 360 180" className={common}>
-        {[
-          [22, 36, 72, 50, "Record"],
-          [112, 16, 136, 50, "Study Mode"],
-          [112, 100, 136, 50, "Group Chat"],
-          [266, 36, 72, 50, "Share"],
-        ].map(([x, y, w, h, label]) => (
-          <g key={label}>
-            <rect x={x} y={y} width={w} height={h} rx="14" className={s} strokeWidth="2.2" />
-            <text x={Number(x) + Number(w) / 2} y={Number(y) + 30} textAnchor="middle" className="fill-current text-[11px] font-semibold">{label}</text>
-          </g>
-        ))}
-        <path d="M94 61h18M248 41h18M248 125h18" className={s} strokeWidth="2" />
-      </svg>
-    ),
-    memory: (
-      <svg viewBox="0 0 360 180" className={common}>
-        {[
-          [16, 24, 80, 48, "Memory"],
-          [108, 24, 112, 48, "Instructions"],
-          [232, 24, 108, 48, "Personality"],
-        ].map(([x, y, w, h, label]) => (
-          <g key={label}>
-            <rect x={x} y={y} width={w} height={h} rx="14" className={s} strokeWidth="2.2" />
-            <text x={Number(x) + Number(w) / 2} y={Number(y) + 30} textAnchor="middle" className="fill-current text-[12px] font-semibold">{label}</text>
-          </g>
-        ))}
-        <rect x="68" y="112" width="224" height="48" rx="16" className={s} strokeWidth="2.2" />
-        <text x="180" y="140" textAnchor="middle" className="fill-current text-[12px] font-semibold">Consistent output</text>
-        <path d="M56 72l44 40M164 72v40M286 72l-44 40" className={s} strokeWidth="2" />
-      </svg>
-    ),
-    project: (
-      <svg viewBox="0 0 360 180" className={common}>
-        <rect x="32" y="12" width="296" height="156" rx="20" className={s} strokeWidth="2.2" />
-        <rect x="52" y="40" width="76" height="104" rx="12" className={s} strokeWidth="2.2" />
-        <rect x="142" y="40" width="76" height="104" rx="12" className={s} strokeWidth="2.2" />
-        <rect x="232" y="40" width="76" height="48" rx="10" className={s} strokeWidth="2.2" />
-        <rect x="232" y="96" width="76" height="48" rx="10" className={s} strokeWidth="2.2" />
-        <text x="90" y="96" textAnchor="middle" className="fill-current text-[11px] font-semibold">Chats</text>
-        <text x="180" y="96" textAnchor="middle" className="fill-current text-[11px] font-semibold">Files</text>
-        <text x="270" y="68" textAnchor="middle" className="fill-current text-[10px] font-semibold">Sources</text>
-        <text x="270" y="124" textAnchor="middle" className="fill-current text-[10px] font-semibold">Rules</text>
-      </svg>
-    ),
-    gpt: (
-      <svg viewBox="0 0 360 180" className={common}>
-        {[
-          [20, 66, 86, 48, "Role"],
-          [128, 16, 104, 48, "Knowledge"],
-          [128, 116, 104, 48, "Tools"],
-          [254, 66, 86, 48, "Rules"],
-        ].map(([x, y, w, h, label]) => (
-          <g key={label}>
-            <rect x={x} y={y} width={w} height={h} rx="14" className={s} strokeWidth="2.2" />
-            <text x={Number(x) + Number(w) / 2} y={Number(y) + 29} textAnchor="middle" className="fill-current text-[11px] font-semibold">{label}</text>
-          </g>
-        ))}
-        <path d="M106 90h22M232 40h22M232 140h22" className={s} strokeWidth="2" />
-        <path d="M180 64v52" className={s} strokeWidth="2" />
-      </svg>
-    ),
-    canvas: (
-      <svg viewBox="0 0 360 180" className={common}>
-        <rect x="24" y="12" width="312" height="156" rx="18" className={s} strokeWidth="2.2" />
-        <path d="M24 44h312" className={s} strokeWidth="2" />
-        <path d="M140 44v124M244 44v124" className={s} strokeWidth="1.8" />
-        <text x="82" y="32" textAnchor="middle" className="fill-current text-[11px] font-semibold">Outline</text>
-        <text x="192" y="32" textAnchor="middle" className="fill-current text-[11px] font-semibold">Draft</text>
-        <text x="292" y="32" textAnchor="middle" className="fill-current text-[11px] font-semibold">Edits</text>
-        <text x="192" y="104" textAnchor="middle" className="fill-current text-[9px] opacity-50">visible working surface</text>
-      </svg>
-    ),
-    agent: (
-      <svg viewBox="0 0 360 180" className={common}>
-        {[
-          [14, 66, 68, 48, "Goal"],
-          [102, 16, 72, 48, "Browse"],
-          [102, 116, 72, 48, "Files"],
-          [194, 16, 72, 48, "Apps"],
-          [194, 116, 72, 48, "Code"],
-          [286, 66, 56, 48, "Done"],
-        ].map(([x, y, w, h, label]) => (
-          <g key={label}>
-            <rect x={x} y={y} width={w} height={h} rx="12" className={s} strokeWidth="2.2" />
-            <text x={Number(x) + Number(w) / 2} y={Number(y) + 29} textAnchor="middle" className="fill-current text-[10px] font-semibold">{label}</text>
-          </g>
-        ))}
-        <path d="M82 90h20M138 64v52M174 40h20M174 140h20M266 40l20 44M266 140l20-44" className={s} strokeWidth="2" />
-      </svg>
-    ),
-    models: (
-      <svg viewBox="0 0 360 180" className={common}>
-        {[
-          [24, 66, 80, 48, "Auto"],
-          [128, 16, 80, 48, "Fast"],
-          [128, 116, 80, 48, "Deep"],
-          [256, 66, 80, 48, "Pro"],
-        ].map(([x, y, w, h, label]) => (
-          <g key={label}>
-            <rect x={x} y={y} width={w} height={h} rx="14" className={s} strokeWidth="2.2" />
-            <text x={Number(x) + Number(w) / 2} y={Number(y) + 29} textAnchor="middle" className="fill-current text-[11px] font-semibold">{label}</text>
-          </g>
-        ))}
-        <path d="M104 90h24M208 40h48M208 140h48" className={s} strokeWidth="2" />
-        <path d="M168 64v52" className={s} strokeWidth="2" />
-        <text x="168" y="94" textAnchor="middle" className="fill-current text-[8px] opacity-40">match to task</text>
-      </svg>
-    ),
-    privacy: (
-      <svg viewBox="0 0 360 180" className={common}>
-        <path d="M180 16l96 36v50c0 38-28 70-96 90-68-20-96-52-96-90V52l96-36z" className={s} strokeWidth="2.2" />
-        <path d="M148 96l20 20 44-48" className={s} strokeWidth="2.5" />
-        <text x="180" y="166" textAnchor="middle" className="fill-current text-[11px] opacity-50">capability needs boundaries</text>
-      </svg>
-    ),
+  const cls = "h-36 w-full";
+  const col = C.greenDeep;
+  const tx = (x, y, label, opts = {}) => <text x={x} y={y} textAnchor="middle" fill={col} style={{ fontSize: opts.size || 10, fontWeight: opts.bold ? 600 : 400, opacity: opts.dim ? 0.4 : 1 }}>{label}</text>;
+  const V = {
+    mental: <svg viewBox="0 0 360 170" className={cls} style={{ color: col }}><rect x="24" y="12" width="120" height="44" rx="12" className={s} strokeWidth="2"/><rect x="216" y="12" width="120" height="44" rx="12" className={s} strokeWidth="2"/><rect x="120" y="110" width="120" height="44" rx="12" className={s} strokeWidth="2"/><path d="M144 34h72" className={s} strokeWidth="1.5"/><path d="M84 56l60 54M276 56l-60 54" className={s} strokeWidth="1.5"/>{tx(84,39,"Your goal",{bold:true})}{tx(276,39,"AI draft",{bold:true})}{tx(180,137,"Your judgment",{bold:true})}{tx(180,84,"inspect, decide, act",{dim:true,size:9})}</svg>,
+    layers: <svg viewBox="0 0 360 170" className={cls} style={{ color: col }}>{[["40","8","280","24","Normal Chat"],["54","38","252","24","Projects + Canvas"],["68","68","224","24","Memory + Instructions"],["82","98","196","24","GPTs + Study + Skills"],["96","128","168","24","Tasks + Apps + Agent"]].map(([x,y,w,h,l])=><g key={l}><rect x={x} y={y} width={w} height={h} rx="10" className={s} strokeWidth="2"/>{tx(180,Number(y)+16,l,{bold:true,size:9})}</g>)}{tx(336,22,"simple",{dim:true,size:8})}{tx(336,146,"powerful",{dim:true,size:8})}</svg>,
+    prompt: <svg viewBox="0 0 360 170" className={cls} style={{ color: col }}>{[["18","8","Goal"],["126","8","Context"],["234","8","Rules"],["18","92","Format"],["126","92","Quality"],["234","92","Verify"]].map(([x,y,l])=><g key={l}><rect x={x} y={y} width="102" height="50" rx="10" className={s} strokeWidth="2"/>{tx(Number(x)+51,Number(y)+30,l,{bold:true,size:11})}</g>)}</svg>,
+    workflow: <svg viewBox="0 0 360 140" className={cls} style={{ color: col }}>{[["30","Frame"],["100","Draft"],["170","Critique"],["240","Revise"],["310","Ship"]].map(([x,l],i)=><g key={l}><circle cx={x} cy="60" r="22" className={s} strokeWidth="2"/>{tx(Number(x),64,l,{bold:true,size:9})}{i<4&&<path d={`M${Number(x)+22} 60h26`} className={s} strokeWidth="1.5"/>}</g>)}{tx(170,112,"each pass adds specificity",{dim:true,size:9})}</svg>,
+    writing: <svg viewBox="0 0 360 140" className={cls} style={{ color: col }}><rect x="20" y="14" width="92" height="90" rx="10" className={s} strokeWidth="2"/><rect x="134" y="14" width="92" height="90" rx="10" className={s} strokeWidth="2"/><rect x="248" y="14" width="92" height="90" rx="10" className={s} strokeWidth="2"/><path d="M112 59h22M226 59h22" className={s} strokeWidth="1.5"/>{tx(66,38,"Source",{bold:true})}{tx(180,38,"Transform",{bold:true})}{tx(294,38,"Output",{bold:true})}</svg>,
+    data: <svg viewBox="0 0 360 140" className={cls} style={{ color: col }}><rect x="20" y="10" width="116" height="96" rx="10" className={s} strokeWidth="2"/><path d="M20 36h116M48 10v96M76 10v96M104 10v96M20 62h116M20 88h116" className={s} strokeWidth="1"/><rect x="186" y="18" width="24" height="70" rx="6" className={s} strokeWidth="2"/><rect x="220" y="40" width="24" height="48" rx="6" className={s} strokeWidth="2"/><rect x="254" y="28" width="24" height="60" rx="6" className={s} strokeWidth="2"/><rect x="288" y="48" width="24" height="40" rx="6" className={s} strokeWidth="2"/><path d="M182 100h136" className={s} strokeWidth="1.5"/>{tx(78,126,"1. Inspect",{dim:true,size:9})}{tx(252,126,"2. Conclude",{dim:true,size:9})}</svg>,
+    research: <svg viewBox="0 0 360 140" className={cls} style={{ color: col }}><circle cx="66" cy="58" r="32" className={s} strokeWidth="2"/><path d="M90 82l22 22" className={s} strokeWidth="2"/><rect x="170" y="10" width="144" height="28" rx="8" className={s} strokeWidth="2"/><rect x="170" y="50" width="144" height="28" rx="8" className={s} strokeWidth="2"/><rect x="170" y="90" width="144" height="28" rx="8" className={s} strokeWidth="2"/>{tx(242,29,"Primary",{bold:true})}{tx(242,69,"Secondary",{bold:true})}{tx(242,109,"Inference",{bold:true})}<circle cx="326" cy="24" r="4" fill="#10a37f" stroke="none"/><circle cx="326" cy="64" r="4" fill="#F59E0B" stroke="none"/><circle cx="326" cy="104" r="4" fill="#E11D48" stroke="none" opacity="0.5"/></svg>,
+    multimodal: <svg viewBox="0 0 360 130" className={cls} style={{ color: col }}>{[["36","Text"],["120","Image"],["204","Voice"],["288","Edit"]].map(([x,l])=><g key={l}><rect x={x} y="20" width="52" height="52" rx="12" className={s} strokeWidth="2"/>{tx(Number(x)+26,50,l,{bold:true,size:9})}</g>)}<path d="M88 46h32M172 46h32M256 46h32" className={s} strokeWidth="1.5"/>{tx(180,102,"chain modes together",{dim:true,size:9})}</svg>,
+    collab: <svg viewBox="0 0 360 140" className={cls} style={{ color: col }}>{[["18","24","64","42","Record"],["100","6","120","42","Study"],["100","78","120","42","Group"],["238","24","80","42","Share"]].map(([x,y,w,h,l])=><g key={l}><rect x={x} y={y} width={w} height={h} rx="10" className={s} strokeWidth="2"/>{tx(Number(x)+Number(w)/2,Number(y)+26,l,{bold:true,size:10})}</g>)}<path d="M82 45h18M220 27h18M220 99h18" className={s} strokeWidth="1.5"/></svg>,
+    memory: <svg viewBox="0 0 360 140" className={cls} style={{ color: col }}>{[["14","10","74","40","Memory"],["100","10","120","40","Instructions"],["232","10","108","40","Personality"]].map(([x,y,w,h,l])=><g key={l}><rect x={x} y={y} width={w} height={h} rx="10" className={s} strokeWidth="2"/>{tx(Number(x)+Number(w)/2,Number(y)+25,l,{bold:true,size:10})}</g>)}<rect x="60" y="88" width="240" height="40" rx="12" className={s} strokeWidth="2"/>{tx(180,113,"Consistent output",{bold:true})}<path d="M51 50l38 38M160 50v38M286 50l-38 38" className={s} strokeWidth="1.5"/></svg>,
+    project: <svg viewBox="0 0 360 140" className={cls} style={{ color: col }}><rect x="28" y="4" width="304" height="132" rx="16" className={s} strokeWidth="2"/><rect x="46" y="28" width="72" height="88" rx="8" className={s} strokeWidth="2"/><rect x="130" y="28" width="72" height="88" rx="8" className={s} strokeWidth="2"/><rect x="214" y="28" width="100" height="40" rx="8" className={s} strokeWidth="2"/><rect x="214" y="76" width="100" height="40" rx="8" className={s} strokeWidth="2"/>{tx(82,76,"Chats",{bold:true})}{tx(166,76,"Files",{bold:true})}{tx(264,52,"Sources",{bold:true,size:9})}{tx(264,100,"Rules",{bold:true,size:9})}</svg>,
+    gpt: <svg viewBox="0 0 360 140" className={cls} style={{ color: col }}>{[["16","48","78","42","Role"],["116","4","96","42","Knowledge"],["116","94","96","42","Tools"],["234","48","110","42","Rules"]].map(([x,y,w,h,l])=><g key={l}><rect x={x} y={y} width={w} height={h} rx="10" className={s} strokeWidth="2"/>{tx(Number(x)+Number(w)/2,Number(y)+26,l,{bold:true,size:10})}</g>)}<path d="M94 69h22M212 25h22M212 115h22" className={s} strokeWidth="1.5"/><path d="M164 46v48" className={s} strokeWidth="1.5"/></svg>,
+    canvas: <svg viewBox="0 0 360 140" className={cls} style={{ color: col }}><rect x="20" y="4" width="320" height="132" rx="14" className={s} strokeWidth="2"/><path d="M20 32h320" className={s} strokeWidth="1.5"/><path d="M132 32v104M248 32v104" className={s} strokeWidth="1.2"/>{tx(76,22,"Outline",{bold:true,size:10})}{tx(190,22,"Draft",{bold:true,size:10})}{tx(290,22,"Edits",{bold:true,size:10})}</svg>,
+    agent: <svg viewBox="0 0 360 140" className={cls} style={{ color: col }}>{[["10","48","60","40","Goal"],["90","6","64","40","Browse"],["90","94","64","40","Files"],["174","6","64","40","Apps"],["174","94","64","40","Code"],["258","48","80","40","Done"]].map(([x,y,w,h,l])=><g key={l}><rect x={x} y={y} width={w} height={h} rx="9" className={s} strokeWidth="2"/>{tx(Number(x)+Number(w)/2,Number(y)+24,l,{bold:true,size:9})}</g>)}<path d="M70 68h20M122 46v48M154 26h20M154 114h20M238 26l20 40M238 114l20-40" className={s} strokeWidth="1.5"/></svg>,
+    models: <svg viewBox="0 0 360 140" className={cls} style={{ color: col }}>{[["20","48","72","40","Auto"],["116","4","72","40","Fast"],["116","96","72","40","Deep"],["268","48","72","40","Pro"]].map(([x,y,w,h,l])=><g key={l}><rect x={x} y={y} width={w} height={h} rx="10" className={s} strokeWidth="2"/>{tx(Number(x)+Number(w)/2,Number(y)+25,l,{bold:true,size:10})}</g>)}<path d="M92 68h24M188 24h80M188 116h80" className={s} strokeWidth="1.5"/><path d="M152 44v52" className={s} strokeWidth="1.5"/></svg>,
+    privacy: <svg viewBox="0 0 360 150" className={cls} style={{ color: col }}><path d="M180 8l88 32v44c0 34-26 62-88 80-62-18-88-46-88-80V40l88-32z" className={s} strokeWidth="2"/><path d="M150 82l18 18 40-42" className={s} strokeWidth="2.2"/>{tx(180,142,"capability needs boundaries",{dim:true,size:9})}</svg>,
   };
-
-  return visuals[type] || null;
+  return V[type] || null;
 }
-
-/* ─────────────────────────────────────────────
-   SUB-COMPONENTS
-   ───────────────────────────────────────────── */
 
 function FeatureCard({ title, icon: Icon, color, description, when }) {
   return (
-    <div className="group rounded-2xl border border-[var(--border)] bg-white p-5 transition-all duration-200 hover:border-[var(--green-mid)] hover:shadow-md">
+    <div className="rounded-2xl border bg-white p-5 transition-shadow duration-200 hover:shadow-md" style={{ borderColor: C.border }}>
       <div className="mb-3 flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: color + "14" }}>
-          <Icon className="h-[18px] w-[18px]" style={{ color }} />
-        </div>
-        <span className="text-[15px] font-semibold text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>{title}</span>
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: color + "14" }}><Icon className="h-4 w-4" style={{ color }} /></div>
+        <span className="ff-display text-[15px] font-semibold" style={{ color: C.ink }}>{title}</span>
       </div>
-      <p className="text-[13px] leading-[1.65] text-[var(--ink-light)]">{description}</p>
-      {when && (
-        <div className="mt-3 rounded-xl bg-[var(--cream)] px-3 py-2 text-[12px] leading-[1.6] text-[var(--ink-light)]">
-          <span className="font-semibold text-[var(--green-deep)]">When: </span>{when}
-        </div>
-      )}
+      <p className="text-[13px] leading-relaxed" style={{ color: C.inkLight }}>{description}</p>
+      {when && <div className="mt-3 rounded-xl px-3 py-2 text-[12px] leading-relaxed" style={{ backgroundColor: C.cream, color: C.inkLight }}><span className="font-semibold" style={{ color: C.greenDeep }}>When: </span>{when}</div>}
     </div>
   );
 }
 
 function MiniFeature({ title, icon: Icon, color, description }) {
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-white p-4 transition-all duration-200 hover:shadow-sm">
+    <div className="rounded-2xl border bg-white p-4 transition-shadow hover:shadow-sm" style={{ borderColor: C.border }}>
       <div className="mb-2 flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: color + "14" }}>
-          <Icon className="h-3.5 w-3.5" style={{ color }} />
-        </div>
-        <span className="text-[13px] font-semibold text-[var(--ink)]">{title}</span>
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: color + "14" }}><Icon className="h-3.5 w-3.5" style={{ color }} /></div>
+        <span className="text-[13px] font-semibold" style={{ color: C.ink }}>{title}</span>
       </div>
-      <p className="text-[12px] leading-[1.6] text-[var(--ink-light)]">{description}</p>
+      <p className="text-[12px] leading-relaxed" style={{ color: C.inkLight }}>{description}</p>
     </div>
   );
 }
 
 function BeforeAfterBlock({ data }) {
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--cream)] p-5">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Before → After</div>
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <div className="rounded-xl border border-red-200 bg-red-50/50 px-4 py-3">
-          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-red-400">Weak prompt</div>
-          <div className="text-[13px] leading-[1.6] text-[var(--ink)]" style={{ fontFamily: "var(--font-mono)", fontSize: "12px" }}>{data.before}</div>
+    <div className="rounded-2xl border p-5" style={{ borderColor: C.border, backgroundColor: C.cream }}>
+      <div className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.inkMuted }}>Before vs. After</div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-red-400">Weak</div>
+          <div className="ff-mono break-words text-[12px] leading-relaxed" style={{ color: C.ink }}>{data.before}</div>
         </div>
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 px-4 py-3">
-          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-emerald-600">Strong prompt</div>
-          <div className="text-[13px] leading-[1.6] text-[var(--ink)]" style={{ fontFamily: "var(--font-mono)", fontSize: "12px" }}>{data.after}</div>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-600">Strong</div>
+          <div className="ff-mono break-words text-[12px] leading-relaxed" style={{ color: C.ink }}>{data.after}</div>
         </div>
       </div>
-      <div className="mt-3 flex items-start gap-2 text-[12px] leading-[1.6] text-[var(--green-deep)]">
-        <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        <span className="font-medium">{data.improvement}</span>
+      <div className="mt-3 flex items-start gap-2 text-[12px] leading-relaxed" style={{ color: C.greenDeep }}>
+        <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span className="font-medium">{data.improvement}</span>
       </div>
     </div>
   );
@@ -1019,118 +300,57 @@ function BeforeAfterBlock({ data }) {
 
 function PromptExample({ prompt, why }) {
   return (
-    <div className="rounded-xl border border-[var(--border-light)] bg-white px-4 py-3">
-      <div className="text-[13px] leading-[1.6] text-[var(--ink)]" style={{ fontFamily: "var(--font-mono)", fontSize: "12px" }}>{prompt}</div>
-      <div className="mt-1 text-[11px] leading-[1.5] text-[var(--ink-muted)]">{why}</div>
+    <div className="rounded-xl border bg-white px-4 py-3" style={{ borderColor: C.borderLight }}>
+      <div className="ff-mono break-words text-[12px] leading-relaxed" style={{ color: C.ink }}>{prompt}</div>
+      <div className="mt-1.5 text-[11px] leading-snug" style={{ color: C.inkMuted }}>{why}</div>
     </div>
   );
 }
 
 function GuideSectionCard({ section, isExpanded, onToggle }) {
+  const Icon = section.icon;
   return (
-    <section
-      id={section.id}
-      className="scroll-mt-24 overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-sm transition-shadow duration-300 hover:shadow-md"
-    >
-      {/* Header — always visible */}
-      <button
-        onClick={onToggle}
-        className="flex w-full items-start gap-4 p-5 text-left md:items-center md:p-6"
-      >
-        <div
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white"
-          style={{ backgroundColor: section.color }}
-        >
-          <section.icon className="h-5 w-5" />
-        </div>
+    <section id={section.id} className="scroll-mt-28 overflow-hidden rounded-2xl border bg-white shadow-sm transition-shadow duration-200 hover:shadow-md" style={{ borderColor: C.border }}>
+      <button onClick={onToggle} className="flex w-full items-start gap-4 p-5 text-left md:items-center md:p-6">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white" style={{ backgroundColor: section.color }}><Icon className="h-5 w-5" /></div>
         <div className="min-w-0 flex-1">
-          <div className="mb-1 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">
-              {section.number} · {section.level.charAt(0).toUpperCase() + section.level.slice(1)}
-            </span>
-          </div>
-          <h3 className="text-[17px] font-semibold leading-snug text-[var(--ink)] md:text-[19px]" style={{ fontFamily: "var(--font-display)" }}>
-            {section.title}
-          </h3>
-          {!isExpanded && (
-            <p className="mt-1 line-clamp-2 text-[13px] leading-[1.6] text-[var(--ink-light)]">{section.summary}</p>
-          )}
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.inkMuted }}>{section.number} &middot; {section.level.charAt(0).toUpperCase() + section.level.slice(1)}</div>
+          <h3 className="ff-display text-[17px] font-semibold leading-snug md:text-[19px]" style={{ color: C.ink }}>{section.title}</h3>
+          {!isExpanded && <p className="clamp-2 mt-1 text-[13px] leading-relaxed" style={{ color: C.inkLight }}>{section.summary}</p>}
         </div>
-        <ChevronDown
-          className={`mt-1 h-5 w-5 shrink-0 text-[var(--ink-muted)] transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
-        />
+        <ChevronDown className={`mt-1 h-5 w-5 shrink-0 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`} style={{ color: C.inkMuted }} />
       </button>
-
-      {/* Body — expanded */}
       {isExpanded && (
-        <div className="border-t border-[var(--border-light)] px-5 pb-6 pt-5 md:px-6">
-          <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            {/* Left column: content */}
-            <div className="space-y-5">
-              <p className="text-[14px] leading-[1.75] text-[var(--ink)]">{section.summary}</p>
-
-              <div className="rounded-xl border border-[var(--border-light)] bg-[var(--cream)] p-4">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Why this matters</div>
-                <p className="mt-2 text-[13px] leading-[1.7] text-[var(--ink)]">{section.whyItMatters}</p>
+        <div className="border-t px-5 pb-7 pt-6 md:px-6" style={{ borderColor: C.borderLight }}>
+          <div className="grid gap-8 lg:grid-cols-2">
+            <div className="space-y-6">
+              <p className="text-[14px] leading-[1.8]" style={{ color: C.ink }}>{section.summary}</p>
+              <div className="rounded-xl border p-4" style={{ borderColor: C.borderLight, backgroundColor: C.cream }}>
+                <div className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.inkMuted }}>Why this matters</div>
+                <p className="mt-2 text-[13px] leading-[1.75]" style={{ color: C.ink }}>{section.whyItMatters}</p>
               </div>
-
-              {/* Start here */}
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--green-deep)]">Start here</div>
-                <div className="mt-2 space-y-2">
-                  {section.beginnerMoves.map((m, i) => (
-                    <div key={i} className="flex gap-2 text-[13px] leading-[1.65] text-[var(--ink)]">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--green-mid)]" />
-                      <span>{m}</span>
-                    </div>
-                  ))}
-                </div>
+                <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.greenDeep }}>Start here</div>
+                <div className="space-y-2.5">{section.beginnerMoves.map((m, i) => <div key={i} className="flex gap-2.5 text-[13px] leading-relaxed" style={{ color: C.ink }}><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" style={{ color: C.greenMid }} /><span>{m}</span></div>)}</div>
               </div>
-
-              {/* Advanced */}
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Advanced moves</div>
-                <div className="mt-2 space-y-2">
-                  {section.advancedMoves.map((m, i) => (
-                    <div key={i} className="flex gap-2 text-[13px] leading-[1.65] text-[var(--ink)]">
-                      <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ink-muted)]" />
-                      <span>{m}</span>
-                    </div>
-                  ))}
-                </div>
+                <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.inkMuted }}>Advanced</div>
+                <div className="space-y-2.5">{section.advancedMoves.map((m, i) => <div key={i} className="flex gap-2.5 text-[13px] leading-relaxed" style={{ color: C.ink }}><ArrowRight className="mt-0.5 h-4 w-4 shrink-0" style={{ color: C.inkMuted }} /><span>{m}</span></div>)}</div>
               </div>
-
-              {/* Common mistakes */}
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--rose-accent)]">Common mistakes</div>
-                <div className="mt-2 space-y-2">
-                  {section.commonMistakes.map((m, i) => (
-                    <div key={i} className="flex gap-2 text-[13px] leading-[1.65] text-[var(--ink)]">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--rose-accent)] opacity-60" />
-                      <span>{m}</span>
-                    </div>
-                  ))}
-                </div>
+                <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.roseAccent }}>Common mistakes</div>
+                <div className="space-y-2.5">{section.commonMistakes.map((m, i) => <div key={i} className="flex gap-2.5 text-[13px] leading-relaxed" style={{ color: C.ink }}><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 opacity-60" style={{ color: C.roseAccent }} /><span>{m}</span></div>)}</div>
               </div>
-
-              {/* Before / After */}
               <BeforeAfterBlock data={section.beforeAfter} />
             </div>
-
-            {/* Right column: visual + prompts */}
-            <div className="space-y-5">
-              <div className="rounded-2xl border border-[var(--border-light)] bg-[var(--cream)] p-4">
-                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Visual model</div>
+            <div className="space-y-6">
+              <div className="rounded-2xl border p-4" style={{ borderColor: C.borderLight, backgroundColor: C.cream }}>
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.inkMuted }}>Visual model</div>
                 <SectionVisual type={section.visual} />
               </div>
-
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Prompt examples</div>
-                <div className="mt-2 space-y-2">
-                  {section.promptExamples.map((p, i) => (
-                    <PromptExample key={i} {...p} />
-                  ))}
-                </div>
+                <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.inkMuted }}>Prompt examples</div>
+                <div className="space-y-2.5">{section.promptExamples.map((p, i) => <PromptExample key={i} {...p} />)}</div>
               </div>
             </div>
           </div>
@@ -1140,362 +360,177 @@ function GuideSectionCard({ section, isExpanded, onToggle }) {
   );
 }
 
-/* ─────────────────────────────────────────────
-   MAIN COMPONENT
-   ───────────────────────────────────────────── */
 export default function ChatGPTMasterGuide() {
   const [query, setQuery] = useState("");
   const [level, setLevel] = useState("all");
   const [expanded, setExpanded] = useState(new Set(["mental-model"]));
-  const [mobileNav, setMobileNav] = useState(false);
+  const toggleSection = useCallback((id) => { setExpanded(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; }); }, []);
+  const expandAll = useCallback(() => setExpanded(new Set(GUIDE_SECTIONS.map(s => s.id))), []);
+  const collapseAll = useCallback(() => setExpanded(new Set()), []);
 
-  const toggleSection = useCallback((id) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const expandAll = useCallback(() => {
-    setExpanded(new Set(GUIDE_SECTIONS.map((s) => s.id)));
-  }, []);
-
-  const collapseAll = useCallback(() => {
-    setExpanded(new Set());
-  }, []);
-
-  const filteredSections = useMemo(() => {
-    return GUIDE_SECTIONS.filter((s) => {
-      const levelMatch = level === "all" || s.level === level;
-      if (!query.trim()) return levelMatch;
-      const haystack = [
-        s.title, s.summary, s.whyItMatters,
-        ...s.beginnerMoves, ...s.advancedMoves, ...s.commonMistakes,
-        ...s.promptExamples.map((p) => p.prompt + " " + p.why),
-        s.beforeAfter.before, s.beforeAfter.after, s.beforeAfter.improvement,
-      ].join(" ").toLowerCase();
-      return levelMatch && haystack.includes(query.toLowerCase());
-    });
-  }, [level, query]);
+  const filteredSections = useMemo(() => GUIDE_SECTIONS.filter(s => {
+    if (level !== "all" && s.level !== level) return false;
+    if (!query.trim()) return true;
+    return [s.title, s.summary, s.whyItMatters, ...s.beginnerMoves, ...s.advancedMoves, ...s.commonMistakes, ...s.promptExamples.map(p => p.prompt), s.beforeAfter.before, s.beforeAfter.after].join(" ").toLowerCase().includes(query.toLowerCase());
+  }), [level, query]);
 
   const sectionsByLevel = useMemo(() => {
-    const groups = { foundation: [], core: [], power: [], expert: [] };
-    filteredSections.forEach((s) => groups[s.level]?.push(s));
-    return groups;
+    const g = { foundation: [], core: [], power: [], expert: [] };
+    filteredSections.forEach(s => g[s.level]?.push(s));
+    return g;
   }, [filteredSections]);
-
-  const levelLabels = {
-    foundation: "Foundation",
-    core: "Core Skills",
-    power: "Power Features",
-    expert: "Expert",
-  };
+  const levelLabels = { foundation: "Foundation", core: "Core Skills", power: "Power Features", expert: "Expert" };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "var(--cream)", color: "var(--ink)" }}>
-      <FontLoader />
+    <div className="ff-body min-h-screen" style={{ backgroundColor: C.cream, color: C.ink }}>
+      <GlobalStyles />
+      <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-10">
 
-      <div className="mx-auto max-w-[76rem] px-4 py-6 md:px-8 md:py-10">
-
-        {/* ─── HEADER ─── */}
-        <header className="overflow-hidden rounded-3xl border border-[var(--border)]" style={{ background: "linear-gradient(135deg, #E8F5EE 0%, #FAF8F4 40%, #F0EDE6 100%)" }}>
-          <div className="grid gap-6 p-6 md:p-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+        {/* HEADER */}
+        <header className="overflow-hidden rounded-3xl border" style={{ borderColor: C.borderLight, background: `linear-gradient(135deg, ${C.greenLight} 0%, ${C.cream} 40%, ${C.creamDark} 100%)` }}>
+          <div className="grid gap-6 p-6 md:p-10 lg:grid-cols-2 lg:items-center">
             <div>
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-white/80 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--green-deep)]">
-                <BookOpen className="h-3.5 w-3.5" />
-                Practical reference
-              </div>
-              <h1 className="text-[32px] font-medium leading-[1.15] tracking-tight text-[var(--ink)] md:text-[44px]" style={{ fontFamily: "var(--font-display)" }}>
-                A Master Guide<br className="hidden sm:block" /> to ChatGPT
-              </h1>
-              <p className="mt-4 max-w-xl text-[15px] leading-[1.75] text-[var(--ink-light)]">
-                What each tool does, when to use it, and how to get measurably better results. Written for everyday users first, with deeper sections for those who want them.
-              </p>
-              <div className="mt-5 flex flex-wrap items-center gap-3">
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-[11px] font-medium text-[var(--ink-light)] shadow-sm">
-                  <Lightbulb className="h-3 w-3 text-[var(--green-mid)]" />
-                  Verified against OpenAI docs as of {VERIFIED_DATE}
-                </div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-[11px] font-medium text-[var(--ink-light)] shadow-sm">
-                  <Layers className="h-3 w-3 text-[var(--green-mid)]" />
-                  16 sections · 4 levels · 60+ prompt examples
-                </div>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-widest" style={{ borderColor: C.borderLight, color: C.greenDeep }}><BookOpen className="h-3.5 w-3.5" /> Practical reference</div>
+              <h1 className="ff-display text-3xl font-medium leading-tight tracking-tight md:text-[44px] md:leading-tight" style={{ color: C.ink }}>A Master Guide to ChatGPT</h1>
+              <p className="mt-4 max-w-lg text-[15px] leading-[1.8]" style={{ color: C.inkLight }}>What each tool does, when to use it, and how to get measurably better results. Written for everyday users first, with deeper sections for those who want them.</p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-medium shadow-sm" style={{ color: C.inkLight }}><Lightbulb className="h-3 w-3" style={{ color: C.greenMid }} /> Verified {VERIFIED_DATE}</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-medium shadow-sm" style={{ color: C.inkLight }}><Layers className="h-3 w-3" style={{ color: C.greenMid }} /> 16 sections &middot; 60+ prompts</span>
               </div>
             </div>
-
-            {/* Big picture visual */}
-            <div className="rounded-2xl border border-[var(--border-light)] bg-white/70 p-5 shadow-sm">
-              <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">What ChatGPT does today</div>
-              <svg viewBox="0 0 440 220" className="h-full w-full text-[var(--green-deep)]">
-                {[
-                  [20, 10, 130, 44, "Answering", "chat · search"],
-                  [160, 10, 130, 44, "Organizing", "projects · memory"],
-                  [300, 10, 130, 44, "Making", "canvas · images · files"],
-                  [20, 138, 130, 44, "Learning", "study · record"],
-                  [160, 138, 130, 44, "Sharing", "groups · links · skills"],
-                  [300, 138, 130, 44, "Executing", "tasks · apps · agent"],
-                ].map(([x, y, w, h, label, sub]) => (
-                  <g key={label}>
-                    <rect x={x} y={y} width={w} height={h} rx="12" className="fill-none stroke-current" strokeWidth="2" />
-                    <text x={Number(x) + Number(w) / 2} y={Number(y) + 22} textAnchor="middle" className="fill-current text-[12px] font-semibold">{label}</text>
-                    <text x={Number(x) + Number(w) / 2} y={Number(y) + 36} textAnchor="middle" className="fill-current text-[9px] opacity-50">{sub}</text>
-                  </g>
-                ))}
-                {[
-                  [150, 32, 160, 32],
-                  [290, 32, 300, 32],
-                  [85, 54, 85, 138],
-                  [225, 54, 225, 138],
-                  [365, 54, 365, 138],
-                ].map(([x1, y1, x2, y2], i) => (
-                  <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} className="stroke-current" strokeWidth="1.5" opacity="0.3" />
-                ))}
-                <text x="220" y="105" textAnchor="middle" className="fill-current text-[11px] font-semibold opacity-40">the full stack</text>
+            <div className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor: C.borderLight }}>
+              <div className="mb-3 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.inkMuted }}>What ChatGPT does today</div>
+              <svg viewBox="0 0 420 190" className="w-full" style={{ color: C.greenDeep }}>
+                {[["16","4","120","38","Answering","chat, search"],["150","4","120","38","Organizing","projects, memory"],["284","4","120","38","Making","canvas, images"],["16","120","120","38","Learning","study, record"],["150","120","120","38","Sharing","groups, links"],["284","120","120","38","Executing","tasks, agent"]].map(([x,y,w,h,l,sub])=><g key={l}><rect x={x} y={y} width={w} height={h} rx="9" className="fill-none stroke-current" strokeWidth="1.6"/><text x={Number(x)+Number(w)/2} y={Number(y)+18} textAnchor="middle" fill={C.greenDeep} style={{fontSize:10,fontWeight:600}}>{l}</text><text x={Number(x)+Number(w)/2} y={Number(y)+30} textAnchor="middle" fill={C.greenDeep} style={{fontSize:7,opacity:0.4}}>{sub}</text></g>)}
+                <text x="210" y="84" textAnchor="middle" fill={C.greenDeep} style={{fontSize:9,fontWeight:600,opacity:0.25}}>the full stack</text>
+                {[[136,23,150,23],[270,23,284,23],[76,42,76,120],[210,42,210,120],[344,42,344,120]].map(([x1,y1,x2,y2],i)=><line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={C.greenDeep} strokeWidth="1" opacity="0.15"/>)}
               </svg>
             </div>
           </div>
         </header>
 
-        {/* ─── QUICK PRINCIPLES ─── */}
+        {/* SIX PRINCIPLES */}
         <section className="mt-8">
-          <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Six principles that matter most</div>
+          <div className="mb-4 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.inkMuted }}>Six principles</div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { icon: PenTool, title: "Ask clearly", desc: "State the goal, context, constraints, and desired format." },
-              { icon: LayoutGrid, title: "Choose the right layer", desc: "Use chat, project, canvas, search, or agent on purpose." },
-              { icon: Shield, title: "Verify when it matters", desc: "Use search and sources for anything current or high-stakes." },
-              { icon: RefreshCcw, title: "Revise, do not restart", desc: "Good results come from a second pass, not a fresh chat." },
-              { icon: Bot, title: "Systemize what works", desc: "Turn a successful workflow into a project, GPT, task, or skill." },
-              { icon: Eye, title: "Use visuals to think faster", desc: "Tables, diagrams, and screenshots reduce reading friction." },
-            ].map(({ icon: I, title, desc }) => (
-              <div key={title} className="flex gap-3 rounded-2xl border border-[var(--border)] bg-white p-4">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--green-deep)] text-white">
-                  <I className="h-4 w-4" />
-                </div>
-                <div>
-                  <div className="text-[13px] font-semibold text-[var(--ink)]">{title}</div>
-                  <div className="mt-0.5 text-[12px] leading-[1.6] text-[var(--ink-light)]">{desc}</div>
-                </div>
+            {[{icon:PenTool,t:"Ask clearly",d:"Goal, context, constraints, format."},{icon:LayoutGrid,t:"Choose the right layer",d:"Chat, project, canvas, search, agent."},{icon:Shield,t:"Verify when it matters",d:"Search for current or high-stakes."},{icon:RefreshCcw,t:"Revise, do not restart",d:"Good results from a second pass."},{icon:Bot,t:"Systemize what works",d:"Project, GPT, task, or skill."},{icon:Eye,t:"Visuals to think faster",d:"Tables, diagrams, screenshots."}].map(({icon:I,t,d})=>(
+              <div key={t} className="flex gap-3 rounded-2xl border bg-white p-4" style={{borderColor:C.border}}>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white" style={{backgroundColor:C.greenDeep}}><I className="h-4 w-4"/></div>
+                <div><div className="text-[13px] font-semibold" style={{color:C.ink}}>{t}</div><div className="mt-0.5 text-[12px] leading-relaxed" style={{color:C.inkLight}}>{d}</div></div>
               </div>
             ))}
           </div>
         </section>
 
-        {/* ─── TOOL CHOOSER TABLE ─── */}
-        <section className="mt-8 rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm md:p-7">
-          <div className="mb-5 flex flex-col gap-1">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Decision table</div>
-            <h2 className="text-[22px] font-medium tracking-tight text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
-              Which ChatGPT tool should you use?
-            </h2>
+        {/* TOOL CHOOSER */}
+        <section className="mt-8 overflow-hidden rounded-2xl border bg-white p-5 shadow-sm md:p-7" style={{borderColor:C.border}}>
+          <div className="mb-5">
+            <div className="text-[11px] font-semibold uppercase tracking-widest" style={{color:C.inkMuted}}>Decision table</div>
+            <h2 className="ff-display mt-1 text-[22px] font-medium tracking-tight" style={{color:C.ink}}>Which tool should you use?</h2>
           </div>
-          <div className="overflow-hidden rounded-xl border border-[var(--border-light)]">
+          <div className="overflow-x-auto rounded-xl border" style={{borderColor:C.borderLight}}>
             <table className="min-w-full text-left text-[13px]">
-              <thead>
-                <tr className="bg-[var(--cream)]">
-                  <th className="px-4 py-3 font-semibold text-[var(--ink)]">Your goal</th>
-                  <th className="px-4 py-3 font-semibold text-[var(--ink)]">Best tool</th>
-                  <th className="hidden px-4 py-3 font-semibold text-[var(--ink)] md:table-cell">Why</th>
-                </tr>
-              </thead>
-              <tbody>
-                {TOOL_CHOOSER.map((row, i) => (
-                  <tr key={row.goal} className={i % 2 === 0 ? "bg-white" : "bg-[var(--cream)]/40"}>
-                    <td className="px-4 py-3 font-medium text-[var(--ink)]">{row.goal}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 text-[var(--green-deep)]">
-                        <row.icon className="h-3.5 w-3.5" />
-                        <span className="font-semibold">{row.tool}</span>
-                      </div>
-                    </td>
-                    <td className="hidden px-4 py-3 text-[var(--ink-light)] md:table-cell">{row.reason}</td>
-                  </tr>
-                ))}
-              </tbody>
+              <thead><tr style={{backgroundColor:C.cream}}><th className="whitespace-nowrap px-4 py-3 font-semibold" style={{color:C.ink}}>Your goal</th><th className="whitespace-nowrap px-4 py-3 font-semibold" style={{color:C.ink}}>Best tool</th><th className="hidden whitespace-nowrap px-4 py-3 font-semibold sm:table-cell" style={{color:C.ink}}>Why</th></tr></thead>
+              <tbody>{TOOL_CHOOSER.map((r,i)=><tr key={r.goal} style={{backgroundColor:i%2===0?"#fff":C.cream}}><td className="px-4 py-3 font-medium" style={{color:C.ink}}>{r.goal}</td><td className="whitespace-nowrap px-4 py-3"><span className="inline-flex items-center gap-1.5 font-semibold" style={{color:C.greenDeep}}><r.icon className="h-3.5 w-3.5"/>{r.tool}</span></td><td className="hidden px-4 py-3 sm:table-cell" style={{color:C.inkLight}}>{r.reason}</td></tr>)}</tbody>
             </table>
           </div>
         </section>
 
-        {/* ─── PROMPT FORMULA ─── */}
-        <section className="mt-8 rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm md:p-7">
+        {/* PROMPT FORMULA */}
+        <section className="mt-8 rounded-2xl border bg-white p-5 shadow-sm md:p-7" style={{borderColor:C.border}}>
           <div className="mb-5">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Prompt pattern</div>
-            <h2 className="mt-1 text-[22px] font-medium tracking-tight text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
-              Six blocks that improve almost any prompt
-            </h2>
+            <div className="text-[11px] font-semibold uppercase tracking-widest" style={{color:C.inkMuted}}>Prompt pattern</div>
+            <h2 className="ff-display mt-1 text-[22px] font-medium tracking-tight" style={{color:C.ink}}>Six blocks that improve any prompt</h2>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {PROMPT_BLOCKS.map((b, i) => (
-              <div key={b.label} className="rounded-xl border border-[var(--border-light)] bg-[var(--cream)] p-4">
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-bold text-white" style={{ backgroundColor: b.color }}>{i + 1}</span>
-                  <span className="text-[13px] font-semibold text-[var(--ink)]">{b.label}</span>
-                </div>
-                <p className="text-[12px] leading-[1.6] text-[var(--ink-light)]" style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>{b.example}</p>
-              </div>
-            ))}
+            {PROMPT_BLOCKS.map((b,i)=><div key={b.label} className="rounded-xl border p-4" style={{borderColor:C.borderLight,backgroundColor:C.cream}}>
+              <div className="mb-1.5 flex items-center gap-2"><span className="flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-bold text-white" style={{backgroundColor:b.color}}>{i+1}</span><span className="text-[13px] font-semibold" style={{color:C.ink}}>{b.label}</span></div>
+              <p className="ff-mono text-[11px] leading-relaxed" style={{color:C.inkLight}}>{b.example}</p>
+            </div>)}
           </div>
         </section>
 
-        {/* ─── CORE FEATURES GRID ─── */}
-        <section className="mt-8 rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm md:p-7">
+        {/* CORE FEATURES */}
+        <section className="mt-8 rounded-2xl border bg-white p-5 shadow-sm md:p-7" style={{borderColor:C.border}}>
           <div className="mb-5">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Feature stack</div>
-            <h2 className="mt-1 text-[22px] font-medium tracking-tight text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
-              The core ChatGPT tools
-            </h2>
+            <div className="text-[11px] font-semibold uppercase tracking-widest" style={{color:C.inkMuted}}>Feature stack</div>
+            <h2 className="ff-display mt-1 text-[22px] font-medium tracking-tight" style={{color:C.ink}}>The core ChatGPT tools</h2>
           </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {CORE_FEATURES.map((f) => <FeatureCard key={f.title} {...f} />)}
-          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{CORE_FEATURES.map(f=><FeatureCard key={f.title} {...f}/>)}</div>
         </section>
 
-        {/* ─── ADDITIONAL FEATURES ─── */}
-        <section className="mt-8 rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm md:p-7">
+        {/* ADDITIONAL */}
+        <section className="mt-8 rounded-2xl border bg-white p-5 shadow-sm md:p-7" style={{borderColor:C.border}}>
           <div className="mb-5">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Often overlooked</div>
-            <h2 className="mt-1 text-[22px] font-medium tracking-tight text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
-              Features most users miss
-            </h2>
+            <div className="text-[11px] font-semibold uppercase tracking-widest" style={{color:C.inkMuted}}>Often overlooked</div>
+            <h2 className="ff-display mt-1 text-[22px] font-medium tracking-tight" style={{color:C.ink}}>Features most users miss</h2>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {ADDITIONAL_FEATURES.map((f) => <MiniFeature key={f.title} {...f} />)}
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{ADDITIONAL_FEATURES.map(f=><MiniFeature key={f.title} {...f}/>)}</div>
+        </section>
+
+        {/* NAVIGATOR */}
+        <section className="sticky top-0 z-20 mt-8 rounded-2xl border bg-white p-4 shadow-lg md:p-5" style={{borderColor:C.border}}>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative mr-auto">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{color:C.inkMuted}}/>
+              <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search..." className="w-full rounded-xl border py-2 pl-10 pr-3 text-[13px] outline-none sm:w-48" style={{borderColor:C.border,backgroundColor:C.cream}}/>
+            </div>
+            {LEVELS.map(l=><button key={l.key} onClick={()=>setLevel(l.key)} className="rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-wide transition-all" style={level===l.key?{backgroundColor:C.greenDeep,color:"#fff"}:{border:`1px solid ${C.border}`,color:C.inkLight}}>{l.label}</button>)}
+            <button onClick={expandAll} className="rounded-lg border px-2.5 py-2 text-[11px] font-medium" style={{borderColor:C.border,color:C.inkLight}}>Expand</button>
+            <button onClick={collapseAll} className="rounded-lg border px-2.5 py-2 text-[11px] font-medium" style={{borderColor:C.border,color:C.inkLight}}>Collapse</button>
           </div>
         </section>
 
-        {/* ─── NAVIGATOR (sticky) ─── */}
-        <section className="sticky top-0 z-20 mt-8 rounded-2xl border border-[var(--border)] bg-white/95 p-4 shadow-md backdrop-blur-md md:p-5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Guide navigator</div>
-              <p className="mt-0.5 text-[12px] text-[var(--ink-light)]">Filter by level, search, or expand all sections.</p>
-            </div>
-            <div className="flex flex-col gap-3 md:flex-row md:items-center">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ink-muted)]" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search sections, tips, prompts…"
-                  className="w-full rounded-xl border border-[var(--border)] bg-[var(--cream)] py-2.5 pl-10 pr-4 text-[13px] outline-none transition-colors focus:border-[var(--green-mid)] md:w-72"
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {LEVELS.map((l) => (
-                  <button
-                    key={l.key}
-                    onClick={() => setLevel(l.key)}
-                    className={`rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] transition-all ${
-                      level === l.key
-                        ? "bg-[var(--green-deep)] text-white shadow-sm"
-                        : "border border-[var(--border)] bg-white text-[var(--ink-light)] hover:bg-[var(--cream)]"
-                    }`}
-                  >
-                    {l.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-1">
-                <button onClick={expandAll} className="rounded-lg border border-[var(--border)] px-2.5 py-2 text-[11px] font-medium text-[var(--ink-light)] transition hover:bg-[var(--cream)]">
-                  Expand all
-                </button>
-                <button onClick={collapseAll} className="rounded-lg border border-[var(--border)] px-2.5 py-2 text-[11px] font-medium text-[var(--ink-light)] transition hover:bg-[var(--cream)]">
-                  Collapse
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ─── GUIDE SECTIONS ─── */}
+        {/* GUIDE SECTIONS */}
         <main className="mt-8 space-y-10">
           {Object.entries(sectionsByLevel).map(([lev, sections]) => {
-            if (sections.length === 0) return null;
-            return (
-              <div key={lev}>
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="h-px flex-1 bg-[var(--border)]" />
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.2em] text-[var(--ink-muted)]">{levelLabels[lev]}</span>
-                  <div className="h-px flex-1 bg-[var(--border)]" />
-                </div>
-                <div className="space-y-4">
-                  {sections.map((section) => (
-                    <GuideSectionCard
-                      key={section.id}
-                      section={section}
-                      isExpanded={expanded.has(section.id)}
-                      onToggle={() => toggleSection(section.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
+            if (!sections.length) return null;
+            return (<div key={lev}>
+              <div className="mb-4 flex items-center gap-3"><div className="h-px flex-1" style={{backgroundColor:C.border}}/><span className="whitespace-nowrap text-[12px] font-semibold uppercase tracking-widest" style={{color:C.inkMuted}}>{levelLabels[lev]}</span><div className="h-px flex-1" style={{backgroundColor:C.border}}/></div>
+              <div className="space-y-4">{sections.map(s=><GuideSectionCard key={s.id} section={s} isExpanded={expanded.has(s.id)} onToggle={()=>toggleSection(s.id)}/>)}</div>
+            </div>);
           })}
         </main>
 
-        {/* ─── SCOPE NOTES ─── */}
+        {/* SCOPE + TAKEAWAY */}
         <section className="mt-10 grid gap-6 md:grid-cols-2">
-          <div className="rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Scope</div>
-            <h3 className="mt-2 text-[18px] font-medium text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>What this guide covers</h3>
-            <div className="mt-4 space-y-2 text-[13px] leading-[1.65] text-[var(--ink-light)]">
-              <div className="rounded-xl bg-[var(--cream)] px-4 py-2.5">User-facing ChatGPT features, not enterprise admin settings.</div>
-              <div className="rounded-xl bg-[var(--cream)] px-4 py-2.5">Practical usage decisions over product trivia.</div>
-              <div className="rounded-xl bg-[var(--cream)] px-4 py-2.5">Feature availability may vary by plan, platform, and rollout timing.</div>
+          <div className="rounded-2xl border bg-white p-5 shadow-sm" style={{borderColor:C.border}}>
+            <div className="text-[11px] font-semibold uppercase tracking-widest" style={{color:C.inkMuted}}>Scope</div>
+            <h3 className="ff-display mt-2 text-[18px] font-medium" style={{color:C.ink}}>What this covers</h3>
+            <div className="mt-4 space-y-2 text-[13px] leading-relaxed" style={{color:C.inkLight}}>
+              <div className="rounded-xl px-4 py-2.5" style={{backgroundColor:C.cream}}>User-facing features, not enterprise admin.</div>
+              <div className="rounded-xl px-4 py-2.5" style={{backgroundColor:C.cream}}>Practical usage over product trivia.</div>
+              <div className="rounded-xl px-4 py-2.5" style={{backgroundColor:C.cream}}>Availability varies by plan and platform.</div>
             </div>
           </div>
-          <div className="rounded-2xl border border-emerald-200 p-5 shadow-sm" style={{ background: "linear-gradient(135deg, #E8F5EE, #F0FAF5)" }}>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--green-deep)]">The single biggest upgrade</div>
+          <div className="rounded-2xl border border-emerald-200 p-5 shadow-sm" style={{background:`linear-gradient(135deg, ${C.greenLight}, #F0FAF5)`}}>
+            <div className="text-[11px] font-semibold uppercase tracking-widest" style={{color:C.greenDeep}}>Biggest upgrade</div>
             <div className="mt-3 flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--green-deep)] text-white">
-                <Sparkles className="h-5 w-5" />
-              </div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white" style={{backgroundColor:C.greenDeep}}><Sparkles className="h-5 w-5"/></div>
               <div>
-                <div className="text-[16px] font-semibold text-[var(--green-deep)]" style={{ fontFamily: "var(--font-display)" }}>
-                  Stop asking "How do I prompt better?"
-                </div>
-                <p className="mt-2 text-[13px] leading-[1.7] text-[var(--green-deep)] opacity-80">
-                  Start asking "Which ChatGPT layer fits this job best?" That single shift improves results more than any collection of prompt tricks.
-                </p>
+                <div className="ff-display text-[16px] font-semibold" style={{color:C.greenDeep}}>Stop asking "How do I prompt better?"</div>
+                <p className="mt-2 text-[13px] leading-[1.75] opacity-80" style={{color:C.greenDeep}}>Start asking "Which ChatGPT layer fits this job?" That shift improves results more than prompt tricks.</p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ─── FINAL CTA ─── */}
-        <footer className="mt-8 overflow-hidden rounded-3xl border border-emerald-900/20 p-6 text-white shadow-lg md:p-10" style={{ background: "linear-gradient(135deg, #0A2A1F 0%, #0D3B2E 40%, #143D30 100%)" }}>
-          <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+        {/* FOOTER */}
+        <footer className="mt-8 overflow-hidden rounded-3xl p-6 text-white shadow-lg md:p-10" style={{background:"linear-gradient(135deg, #0A2A1F, #0D3B2E 40%, #143D30)"}}>
+          <div className="grid gap-8 lg:grid-cols-2">
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-300">Final takeaway</div>
-              <h2 className="mt-2 text-[24px] font-medium tracking-tight md:text-[28px]" style={{ fontFamily: "var(--font-display)" }}>
-                What mastery actually looks like
-              </h2>
-              <p className="mt-4 max-w-2xl text-[14px] leading-[1.8] text-emerald-100/80">
-                Mastery is not about theatrical prompts. It is knowing how to choose the correct mode, define the job clearly, verify what matters, revise intelligently, and turn successful workflows into reusable systems. The best users are not prompt engineers — they are clear thinkers who happen to use AI.
-              </p>
+              <div className="text-[11px] font-semibold uppercase tracking-widest text-emerald-300">Final takeaway</div>
+              <h2 className="ff-display mt-2 text-2xl font-medium tracking-tight md:text-[28px]">What mastery looks like</h2>
+              <p className="mt-4 max-w-xl text-[14px] leading-[1.85] text-emerald-100" style={{opacity:0.8}}>Choose the correct mode. Define the job clearly. Verify what matters. Revise intelligently. Turn successes into reusable systems. The best users are clear thinkers who happen to use AI.</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              <div className="text-[13px] font-semibold text-white">Keep re-checking</div>
-              <div className="mt-3 space-y-1.5 text-[12px] leading-[1.6] text-emerald-200/70">
-                {[
-                  "Capabilities Overview", "Pricing & Plans", "Release Notes",
-                  "Projects", "Memory FAQ", "Canvas", "Tasks",
-                  "Apps & Connectors", "ChatGPT Search", "Deep Research",
-                  "Study Mode", "Record", "Shared Links", "Group Chats",
-                  "Skills", "Agent", "Voice Mode", "Images FAQ",
-                ].map((item) => (
-                  <div key={item} className="flex items-center gap-2">
-                    <div className="h-1 w-1 rounded-full bg-emerald-400/50" />
-                    {item}
-                  </div>
-                ))}
+              <div className="text-[13px] font-semibold">Keep re-checking</div>
+              <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12px] leading-relaxed text-emerald-200" style={{opacity:0.7}}>
+                {["Capabilities","Pricing","Release Notes","Projects","Memory FAQ","Canvas","Tasks","Apps","Search","Deep Research","Study Mode","Record","Shared Links","Groups","Skills","Agent","Voice","Images FAQ"].map(i=><div key={i} className="flex items-center gap-1.5"><div className="h-1 w-1 shrink-0 rounded-full bg-emerald-400" style={{opacity:0.5}}/>{i}</div>)}
               </div>
             </div>
           </div>
         </footer>
-
       </div>
     </div>
   );
